@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  document-ocr-api:
+    build: .
+    ports:
+      - "8000:8000"
+      - "11434:11434"
+      - "6379:6379"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+      - ./.env:/app/.env
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s 
