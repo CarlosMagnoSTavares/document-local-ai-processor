@@ -1,402 +1,78 @@
-# 🧠 PROMPT PARA GERAR DOCUMENT OCR LLM API - SISTEMA COMPLETO
-
-Aja como um arquiteto de software sênior, desenvolvedor fullstack experiente e especialista em IA. Sua tarefa é criar um backend escalável, seguro e altamente otimizado que atue como um **orquestrador inteligente** para análise de documentos com auxílio de modelos de linguagem locais (via Ollama).
-
-## 📥 ESPECIFICAÇÕES FUNCIONAIS DETALHADAS
-
-### 🚀 Endpoint Principal: POST /upload (Smart Upload)
-**Funcionalidade**: Sistema de upload inteligente com detecção automática de tipo de arquivo
-
-**Headers Obrigatórios**:
-- `Key`: Chave de autenticação (validada contra .env)
-- `Prompt`: Pergunta/instrução para o documento (ex: "Extraia o CNPJ deste documento")
-- `Format-Response`: Formato esperado da resposta (ex: `[{"CNPJ": ""}]`)
-- `Model`: Modelo Ollama a usar (ex: "gemma3:1b", "qwen2:0.5b")
-
-**Headers Opcionais**:
-- `Example`: Exemplo do formato esperado (ex: `[{"CNPJ": "XX.XXX.XXX/0001-XX"}]`)
-
-**Sistema de Detecção Automática**:
-- `.jpg/.jpeg/.png` → **Tesseract OCR** (pytesseract com lang='por+eng')
-- `.pdf` → **PyPDF2 Parser** (PyPDF2.PdfReader)
-- `.docx/.doc` → **python-docx Parser** (Document from python-docx)
-- `.xlsx/.xls` → **openpyxl Parser** (openpyxl.load_workbook)
-
-**Fluxo de Processamento**:
-1. Validação de arquivo (extensão, tamanho)
-2. Detecção automática do tipo e ferramenta
-3. Criação de registro no banco SQLite
-4. Trigger da cadeia de tarefas Celery
-5. Retorno imediato do document_id
-
-### 🗄️ Outros Endpoints Essenciais
-
-#### GET /queue
-- Lista todos os documentos e seus status
-- Campos: id, filename, status, created_at, updated_at, completed_at, error_message
-- Ordenação por created_at DESC
-
-#### GET /response/{document_id}
-- Retorna resposta processada para documento específico
-- Inclui formatted_response, status e metadados
-
-#### GET /health
-- Health check básico retornando status "OK"
-
-#### POST /models/download
-- Header: `Model-Name` (nome do modelo para download)
-- Executa `ollama pull {model_name}` em subprocess
-- Retorna progresso e status
-
-#### GET /models/list
-- Lista modelos Ollama instalados
-- Executa `ollama list` e parseia saída
-
-#### POST /config/compute + GET /config/compute
-- Configuração dinâmica CPU/GPU para Ollama
-- Valores: "cpu", "gpu", "auto"
-- Persistência via arquivo de configuração
-
-## 🏗️ ARQUITETURA TÉCNICA DETALHADA
-
-### 📦 Stack Tecnológico Completo
-**Backend**: 
-- FastAPI 0.104.1 (API REST com docs automáticas)
-- Uvicorn com standard (servidor ASGI)
-- Python 3.10+ em Ubuntu 22.04
-
-**Banco de Dados**:
-- SQLAlchemy 1.4.53 (ORM)
-- databases[sqlite] 0.8.0 (async operations)
-- SQLite como banco principal
-
-**Sistema de Filas**:
-- Celery 5.3.4 (task queue)
-- Redis 5.0.1 (broker + backend)
-- Configuração: worker_prefetch_multiplier=1, task_acks_late=True
-
-**Processamento de Documentos**:
-- pytesseract 0.3.10 + Pillow 10.1.0 (OCR)
-- PyPDF2 3.0.1 (PDF parsing)
-- python-docx 1.1.0 (Word documents)
-- openpyxl 3.1.2 (Excel files)
-
-**LLM Local**:
-- Ollama (instalação via curl script)
-- httpx 0.25.2 para comunicação async
-- Timeout de 300s para requests
-
-**Logging & Monitoramento**:
-- loguru 0.7.2 (logs estruturados)
-- Rotação: 10MB (app.log), 5MB (verbose.log)
-- Retenção: 7 dias (app), 3 dias (verbose)
-
-### 🔄 Cadeia de Processamento (3 Tarefas Celery)
-
-#### 1. extract_text_task(document_id)
-- Lê documento do banco
-- Chama extract_text_from_file() baseado no file_type
-- Atualiza status para TEXT_EXTRACTED
-- Dispara process_prompt_task()
-
-#### 2. process_prompt_task(document_id)
-- Cria prompt completo: "Context: {text}\n\nQuestion: {prompt}\n\n..."
-- Chama Ollama via httpx async (POST /api/generate)
-- Configurações: stream=False, temperature=0.7, verbose=True
-- Atualiza status para PROMPT_PROCESSED
-- Dispara format_response_task()
-
-#### 3. format_response_task(document_id)
-- Aplica formatação baseada em format_response
-- Define completed_at timestamp
-- Atualiza status para COMPLETED
-- Finaliza processamento
-
-**Tratamento de Erros**:
-- Max 3 retries por tarefa
-- Backoff exponencial: 60 * (2 ** retry_count)
-- Status ERROR com error_message no banco
-
-### 📊 Modelo de Dados SQLAlchemy
-
-```python
-class DocumentStatus(enum.Enum):
-    UPLOADED = "uploaded"
-    TEXT_EXTRACTED = "text_extracted"
-    PROMPT_PROCESSED = "prompt_processed"
-    COMPLETED = "completed"
-    ERROR = "error"
-
-class Document(Base):
-    __tablename__ = "documents"
-    
-    # IDs
-    id = Column(Integer, primary_key=True, index=True)
-    
-    # Arquivo
-    filename = Column(String(255), nullable=False)
-    file_type = Column(String(50), nullable=False)
-    file_path = Column(String(500), nullable=False)
-    status = Column(Enum(DocumentStatus), default=DocumentStatus.UPLOADED)
-    
-    # Request
-    prompt = Column(Text, nullable=False)
-    format_response = Column(Text, nullable=False)
-    example = Column(Text, nullable=True)
-    model = Column(String(100), nullable=False)
-    
-    # Resultados
-    extracted_text = Column(Text, nullable=True)
-    llm_response = Column(Text, nullable=True)
-    formatted_response = Column(Text, nullable=True)
-    error_message = Column(Text, nullable=True)
-    
-    # Timestamps
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    completed_at = Column(DateTime(timezone=True), nullable=True)
-```
-
-## 🐳 CONTAINERIZAÇÃO COMPLETA
-
-### Dockerfile Multi-Stage
-```dockerfile
-FROM ubuntu:22.04
-
-# Deps sistema + Tesseract + Ollama
-RUN apt-get update && apt-get install -y \
-    python3 python3-pip python3-venv \
-    tesseract-ocr tesseract-ocr-por libtesseract-dev \
-    poppler-utils libpoppler-cpp-dev \
-    curl wget git redis-server supervisor
-
-# Instalar Ollama
-RUN curl -fsSL https://ollama.ai/install.sh | sh
-
-# App setup
-WORKDIR /app
-COPY requirements.txt .
-RUN pip3 install --no-cache-dir -r requirements.txt
-COPY . .
-RUN mkdir -p /app/uploads /app/logs /app/temp
-```
-
-### Orquestração com Supervisor
-**5 Processos Gerenciados**:
-1. `redis-server` (queue broker)
-2. `ollama serve` (LLM server na porta 11434)
-3. `python3 main.py` (FastAPI na porta 8000)
-4. `celery -A workers worker --concurrency=2` (processing workers)
-5. `celery -A workers beat` (scheduler para cleanup)
-
-### Docker Compose
-```yaml
-services:
-  document-ocr-api:
-    build: .
-    ports:
-      - "8000:8000"   # FastAPI
-      - "11434:11434" # Ollama
-      - "6379:6379"   # Redis
-    volumes:
-      - ./uploads:/app/uploads
-      - ./logs:/app/logs
-      - ./.env:/app/.env
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-```
-
-## ⚙️ CONFIGURAÇÃO AVANÇADA
-
-### Arquivo .env Completo
-```bash
-# API
-API_KEY=your-super-secret-api-key-here
-DEBUG=False
-HOST=0.0.0.0
-PORT=8000
-
-# Database
-DATABASE_URL=sqlite:///./documents.db
-
-# Redis
-REDIS_URL=redis://localhost:6379/0
-CELERY_BROKER_URL=redis://localhost:6379/0
-CELERY_RESULT_BACKEND=redis://localhost:6379/0
-
-# Ollama
-OLLAMA_BASE_URL=http://localhost:11434
-DEFAULT_MODEL=gemma3:1b
-
-# Upload
-MAX_FILE_SIZE=50
-ALLOWED_EXTENSIONS=pdf,jpg,jpeg,png,docx,xlsx,xls,doc
-
-# Cleanup
-CLEANUP_INTERVAL_HOURS=1
-MAX_RECORD_AGE_HOURS=24
-
-# Logging
-LOG_LEVEL=INFO
-LOG_ROTATION=10MB
-```
-
-### Sistema de Limpeza Automática
-- Tarefa Celery periódica (cleanup_task)
-- Remove arquivos uploads/ mais antigos que MAX_RECORD_AGE_HOURS
-- Remove registros do banco de dados antigos
-- Limpa logs antigos baseado na rotação
-
-## 🔒 SEGURANÇA E VALIDAÇÕES
-
-### Validação de Upload
-- **Extensões**: Validação contra ALLOWED_EXTENSIONS
-- **Tamanho**: Máximo MAX_FILE_SIZE (50MB default)
-- **Tipo MIME**: Verificação adicional via python-magic (opcional)
-
-### Autenticação
-- Header "Key" obrigatório em todos endpoints protegidos
-- Dependency injection via FastAPI Depends(validate_api_key)
-- HTTPException 401 para keys inválidas
-
-### Sanitização
-- UUIDs únicos para nomes de arquivo
-- Paths absolutos seguros para uploads/
-- Escape de caracteres especiais em prompts
-
-## 📊 LOGGING E MONITORAMENTO
-
-### Sistema de Logs Verbose
-**Estrutura de Logs**:
-- `app.log`: Logs gerais (rotação 10MB, 7 dias)
-- `verbose.log`: Logs detalhados (rotação 5MB, 3 dias)
-- Logs supervisor em `/var/log/supervisor/`
-
-**Informações Logadas**:
-- Detecção automática de tipo de arquivo
-- Ferramentas de extração utilizadas
-- Métricas de processamento (tempo, tokens)
-- Status de cada etapa da pipeline
-- Erros detalhados com stack trace
-
-### Health Checks
-- FastAPI health endpoint (`/health`)
-- Docker healthcheck com curl
-- Verificação de serviços (Redis, Ollama, Celery)
-
-## 🚀 SCRIPTS DE INICIALIZAÇÃO
-
-### start.sh (Script Principal)
-```bash
-#!/bin/bash
-# Criar diretórios
-mkdir -p /var/log/supervisor /app/logs /app/uploads /app/temp
-
-# Setup .env se não existir
-[ ! -f /app/.env ] && cp /app/.env.example /app/.env
-
-# Iniciar Ollama temporariamente e baixar modelo
-ollama serve &
-sleep 10
-ollama pull gemma3:1b
-
-# Inicializar banco
-python3 -c "from database import init_database_sync; init_database_sync()"
-
-# Iniciar supervisor
-exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
-```
-
-## 📝 DOCUMENTAÇÃO E TESTES
-
-### Collection Postman
-- Criar collection completa com todos endpoints
-- Environment com API_KEY e BASE_URL
-- Exemplos de requests para cada tipo de arquivo
-- Testes automatizados de status codes
-
-### Scripts de Teste
-```bash
-# test_api.sh
-curl -X POST "http://localhost:8000/upload" \
-  -H "Key: myelin-ocr-llm-2024-super-secret-key" \
-  -H "Prompt: Extraia o CNPJ deste documento" \
-  -H "Format-Response: [{\"CNPJ\": \"\"}]" \
-  -H "Model: gemma3:1b" \
-  -F "file=@teste.jpg"
-```
-
-### README.md Completo
-- Guia de instalação passo a passo
-- Exemplos de uso para cada tipo de arquivo
-- Troubleshooting comum
-- Configurações avançadas
-- Escalabilidade e performance
-
-## 🎯 CARACTERÍSTICAS AVANÇADAS
-
-### Escalabilidade Inteligente
-- Celery workers configuráveis (--concurrency baseado em CPU)
-- Sistema de filas Redis com persistência
-- Timeout configurável para LLM (300s default)
-- Memory management para arquivos grandes
-
-### Flexibilidade de Modelos
-- Suporte a qualquer modelo Ollama
-- Download dinâmico via API
-- Configuração per-request via header Model
-- Fallback para DEFAULT_MODEL
-
-### Robustez
-- Retry logic com backoff exponencial
-- Circuit breaker para Ollama indisponível
-- Graceful shutdown com cleanup
-- Error handling detalhado
-
-## 🎨 IMPLEMENTAÇÃO ESPECÍFICA
-
-### FastAPI com Async/Await
-- Endpoints async para performance
-- Database connections com databases library
-- Exception handlers customizados
-- Middleware para CORS se necessário
-
-### Celery Workers Otimizados
-- Bind tasks para retry control
-- Async loop para Ollama calls
-- Database session management
-- Memory cleanup pós-processamento
-
-### Utils Modulares
-- Função extract_text_from_file() com detecção automática
-- send_prompt_to_ollama() com retry e timeout
-- format_llm_response() extensível
-- cleanup_old_files() com configuração flexível
-
-## 🚨 PONTOS CRÍTICOS DE IMPLEMENTAÇÃO
-
-1. **Inicialização Completa**: O sistema deve funcionar imediatamente após `docker-compose up --build`
-2. **Detecção Automática**: Logs verbose mostrando qual ferramenta foi escolhida
-3. **Cadeia de Tarefas**: Cada task deve disparar a próxima automaticamente
-4. **Error Handling**: Falhas em qualquer etapa devem ser capturadas e logadas
-5. **Performance**: Sistema deve ser responsivo mesmo com arquivos grandes
-6. **Cleanup**: Limpeza automática deve funcionar sem intervenção manual
-
-## 📋 CHECKLIST DE ENTREGA
-
-- [ ] FastAPI funcionando na porta 8000
-- [ ] Ollama rodando na porta 11434
-- [ ] Redis funcionando na porta 6379
-- [ ] Todos os 5 processos no supervisor
-- [ ] Sistema de upload com detecção automática
-- [ ] Cadeia completa de 3 tarefas Celery
-- [ ] Banco SQLite com modelo completo
-- [ ] Logs verbose detalhados
-- [ ] Cleanup automático funcionando
-- [ ] Health checks operacionais
-- [ ] Collection Postman funcional
-- [ ] README com instruções completas
-- [ ] Scripts de início rápido
-- [ ] Tratamento de erros robusto
-
-**OBJETIVO FINAL**: Sistema completamente funcional, pronto para produção, que processe qualquer tipo de documento suportado de forma automática e inteligente, com monitoramento completo e capacidade de escalar conforme a demanda.
+Aja como um arquiteto de software, desenvolvedor fullstack e engenheiro de IA. Sua tarefa é criar um backend escalável, seguro e leve, que atue como um orquestrador para análise de documentos com auxílio de modelos de linguagem locais (via Ollama).
+📥 Requisitos Funcionais
+Endpoint principal: POST /upload
+Recebe um arquivo no body (ex: arquivo.pdf, arquivo.jpg, arquivo.png, arquivo.docx, arquivo.xlsx, etc.).
+Recebe parâmetros obrigatórios no header:
+Header	Descrição
+Prompt	Exemplo: "Verifique qual CNPJ existe nesse documento" (Obrigatório)
+Format-Response	Exemplo: "[{\"CNPJ\": \"\"}]" (Obrigatório)
+Example	Exemplo: "[{\"CNPJ\": \"XX.XXX.XXX/0001-XX\"}]" (Opcional)
+Model	Exemplo: "gemma3:1b" (Obrigatório)
+Key	Chave de autenticação para uso da API. Deve ser validada com valor vindo do .env (Obrigatório)
+🛠️ Requisitos Técnicos
+Instalar e rodar via Docker com base em imagem Ubuntu LTS.
+Usar OCR (Tesseract) para imagens.
+Usar PDF-to-Text, DOC/DOCX/Excel parser para documentos.
+Enfileirar o processamento:
+Fila para extração de texto (OCR ou parsing).
+Fila para envio do prompt à LLM local via Ollama.
+Fila para formatação e armazenamento da resposta.
+Utilizar Ollama com modelo gemma3:1b (outros modelos podem ser usados futuramente).
+Criar um sistema de filas para permitir processamento assíncrono e escalável.
+O backend deve:
+Rodar em máquinas leves com modelos pequenos (ex: gemma3:1b).
+Escalar em máquinas potentes, utilizando paralelização inteligente baseada no hardware.
+Banco de dados:
+Usar MySQL ou SQLite (foco em leveza).
+Persistir perguntas e respostas por até 1 hora (máximo 24h).
+Implementar limpeza automática para evitar acúmulo de arquivos e logs.
+📊 Endpoints adicionais
+GET /queue
+Retorna a lista de documentos na fila e seus status:
+Upload realizado
+Texto extraído
+Prompt processado
+Erro (se houver)
+GET /response/:id
+Retorna a resposta da LLM para o documento específico.
+📁 Organização do Projeto
+O projeto deverá incluir:
+Dockerfile completo com todas dependências instaladas (Tesseract, Python libs, OCR tools, etc.).
+Instalação e configuração do Ollama com o modelo gemma3:1b.
+Código backend completo, pronto para rodar.
+Endpoints REST documentados.
+Scripts de inicialização.
+Sistema de filas.
+Validação de headers obrigatórios.
+Logs organizados e rotacionados.
+🧪 Testes
+Inclua exemplos de chamadas curl para teste.
+Utilize o arquivo @teste.jpg presente na pasta como exemplo.
+Forneça também uma collection do Postman com todos os endpoints prontos para uso.
+📄 Documentação
+Criar um README completo, contendo:
+Instalação passo a passo (Docker, dependências, env).
+Como rodar a aplicação.
+Como testar.
+Como escalar a aplicação.
+Como modificar o modelo Ollama.
+Explicação sobre cada endpoint e seus headers.
+Estratégia de limpeza automática dos dados.
+🧠 Considerações sobre Escalabilidade
+O sistema deve ser capaz de:
+Rodar em máquinas modestas sem sobrecarga.
+Escalar automaticamente (threads, workers, filas).
+Paralelizar tarefas (extração, prompt, formatação).
+Não depender de serviços externos além da LLM local e banco leve.
+🛡️ Segurança
+As requisições só serão aceitas com Key válida (armazenada no .env).
+A aplicação deve tratar falhas de upload, parsing, e resposta com mensagens claras.
+Evitar upload de arquivos potencialmente maliciosos (limitar extensões permitidas).
+Limitar tamanho dos arquivos para evitar sobrecarga.
+💻 Ambiente
+Ambiente atual:
+Windows 11
+Docker instalado
+docker -v
+Docker version 27.5.1, build 9f9e405
+Conectado à internet para baixar pacotes e imagens necessárias.
