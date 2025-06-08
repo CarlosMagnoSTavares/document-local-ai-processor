@@ -740,7 +740,9 @@ Este sistema foi **inteiramente gerado** através de engenharia de prompt avanç
 
 #### 🔄 **Como Funciona:**
 
-1. **📋 Prompt Inicial**: O arquivo contém especificações completas do sistema
+1. **📋 Prompt Inicial**: O arquivo contém especificações completas do sistema (Feito na Mão por um Humano)
+1.2 **📋 Prompt Inicial Melhorado**: Foi feito com base no inicial, porém melhorado com GPT 4o
+1.2.3 **📋 Prompt Inicial Melhorado Tecnicamente**: A parte técnica foi melhorada usando Claude 4 Thinking mode
 2. **🤖 Claude Sonnet 4**: Interpreta e gera código baseado nas especificações
 3. **⚡ Cursor IDE**: Facilita a implementação e refinamento do código
 4. **🔧 Iterações**: Melhorias contínuas através de prompts refinados
