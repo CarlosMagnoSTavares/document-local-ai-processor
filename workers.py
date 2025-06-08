@@ -109,7 +109,9 @@ def process_prompt_task(self, document_id: int):
                 send_prompt_to_ollama(
                     document.prompt,
                     document.extracted_text,
-                    document.model
+                    document.model,
+                    document.format_response,
+                    document.example
                 )
             )
         finally:

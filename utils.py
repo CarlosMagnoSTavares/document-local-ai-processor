@@ -120,14 +120,51 @@ def extract_text_from_file(file_path: str, file_type: str) -> str:
     
     return text
 
-async def send_prompt_to_ollama(prompt: str, context: str, model: str) -> str:
+async def send_prompt_to_ollama(prompt: str, context: str, model: str, format_response: str = None, example: str = None) -> str:
     """Send prompt to Ollama and get response"""
     try:
-        full_prompt = f"Context: {context}\n\nQuestion: {prompt}\n\nPlease provide a clear and accurate answer based on the context provided."
+        # Build enhanced prompt with strict formatting instructions
+        format_instructions = ""
+        if format_response and example:
+            format_instructions = f"""
+
+CRITICAL FORMATTING INSTRUCTIONS:
+- You MUST respond ONLY with the exact JSON format specified below
+- DO NOT include any explanations, introductions, or additional text
+- DO NOT use markdown formatting or code blocks
+- Respond with ONLY the JSON structure, nothing else
+- Follow the exact pattern shown in the example
+
+Required JSON Format: {format_response}
+Example Response: {example}
+
+Your response must be EXACTLY in this JSON format. No other text is allowed."""
+        elif format_response:
+            format_instructions = f"""
+
+CRITICAL FORMATTING INSTRUCTIONS:
+- You MUST respond ONLY with the exact JSON format specified below
+- DO NOT include any explanations, introductions, or additional text
+- DO NOT use markdown formatting or code blocks
+- Respond with ONLY the JSON structure, nothing else
+
+Required JSON Format: {format_response}
+
+Your response must be EXACTLY in this JSON format. No other text is allowed."""
+
+        full_prompt = f"""Context: {context}
+
+Question: {prompt}{format_instructions}
+
+Based on the context provided above, extract the required information and respond ONLY in the specified JSON format. Do not include any explanations or additional text."""
         
         logger.info(f"🤖 VERBOSE: Sending prompt to Ollama model '{model}'")
         logger.info(f"📄 VERBOSE: Context length: {len(context)} characters")
         logger.info(f"❓ VERBOSE: Prompt: {prompt}")
+        if format_response:
+            logger.info(f"📋 VERBOSE: Format required: {format_response}")
+        if example:
+            logger.info(f"💡 VERBOSE: Example provided: {example}")
         logger.debug(f"📝 VERBOSE: Full prompt: {full_prompt[:500]}..." if len(full_prompt) > 500 else f"📝 VERBOSE: Full prompt: {full_prompt}")
         
         async with httpx.AsyncClient(timeout=300) as client:
@@ -141,7 +178,9 @@ async def send_prompt_to_ollama(prompt: str, context: str, model: str) -> str:
                     "stream": False,
                     "options": {
                         "verbose": True,
-                        "temperature": 0.7
+                        "temperature": 0.1,  # Lower temperature for more consistent formatting
+                        "top_p": 0.9,
+                        "repeat_penalty": 1.1
                     }
                 }
             )
@@ -170,23 +209,157 @@ async def send_prompt_to_ollama(prompt: str, context: str, model: str) -> str:
 def format_llm_response(llm_response: str, format_template: str, example: str = None) -> str:
     """Format LLM response according to specified format"""
     try:
-        # Simple formatting logic - can be enhanced with more sophisticated parsing
-        if format_template.startswith('[') and format_template.endswith(']'):
-            # JSON array format
-            try:
-                # Try to parse as JSON to validate format
-                json.loads(format_template)
-                # For now, return the LLM response wrapped in the expected format
-                # This is a simplified implementation - you might want to implement
-                # more sophisticated parsing based on your specific needs
-                return llm_response
-            except json.JSONDecodeError:
-                pass
+        logger.info(f"🎨 VERBOSE: Starting response formatting")
+        logger.info(f"📝 VERBOSE: Original LLM response: {llm_response}")
+        logger.info(f"📋 VERBOSE: Expected format: {format_template}")
         
-        return llm_response
+        # Clean the response
+        cleaned_response = llm_response.strip()
+        
+        # Try to extract JSON from the response
+        extracted_json = None
+        
+        # Method 1: Check if the entire response is valid JSON
+        try:
+            json.loads(cleaned_response)
+            extracted_json = cleaned_response
+            logger.info(f"✅ VERBOSE: Entire response is valid JSON")
+        except json.JSONDecodeError:
+            logger.info(f"🔍 VERBOSE: Response is not entirely JSON, attempting extraction")
+            
+        # Method 2: Try to find JSON within the response
+        if extracted_json is None:
+            import re
+            
+            # Look for JSON array patterns [...]
+            if format_template.startswith('[') and format_template.endswith(']'):
+                json_pattern = r'\[.*?\]'
+                json_matches = re.findall(json_pattern, cleaned_response, re.DOTALL)
+                
+                for match in json_matches:
+                    try:
+                        json.loads(match)  # Validate JSON
+                        extracted_json = match
+                        logger.info(f"✅ VERBOSE: Found valid JSON array: {match}")
+                        break
+                    except json.JSONDecodeError:
+                        continue
+            
+            # Look for JSON object patterns {...}
+            elif format_template.startswith('{') and format_template.endswith('}'):
+                json_pattern = r'\{.*?\}'
+                json_matches = re.findall(json_pattern, cleaned_response, re.DOTALL)
+                
+                for match in json_matches:
+                    try:
+                        json.loads(match)  # Validate JSON
+                        extracted_json = match
+                        logger.info(f"✅ VERBOSE: Found valid JSON object: {match}")
+                        break
+                    except json.JSONDecodeError:
+                        continue
+        
+        # Method 3: Try to extract specific values based on format template
+        if extracted_json is None and format_template:
+            logger.info(f"🔧 VERBOSE: Attempting value extraction based on template")
+            try:
+                # Parse the format template to understand expected structure
+                template_obj = json.loads(format_template)
+                
+                if isinstance(template_obj, list) and len(template_obj) > 0 and isinstance(template_obj[0], dict):
+                    # Handle array of objects
+                    extracted_data = []
+                    for key in template_obj[0].keys():
+                        # Try to find values for this key in the response
+                        value = extract_value_from_text(cleaned_response, key)
+                        if value:
+                            extracted_data.append({key: value})
+                    
+                    if extracted_data:
+                        extracted_json = json.dumps(extracted_data, ensure_ascii=False)
+                        logger.info(f"✅ VERBOSE: Extracted data based on template: {extracted_json}")
+                
+                elif isinstance(template_obj, dict):
+                    # Handle single object
+                    extracted_data = {}
+                    for key in template_obj.keys():
+                        value = extract_value_from_text(cleaned_response, key)
+                        if value:
+                            extracted_data[key] = value
+                    
+                    if extracted_data:
+                        extracted_json = json.dumps(extracted_data, ensure_ascii=False)
+                        logger.info(f"✅ VERBOSE: Extracted data based on template: {extracted_json}")
+                        
+            except json.JSONDecodeError:
+                logger.warning(f"⚠️ VERBOSE: Could not parse format template as JSON")
+        
+        # Method 4: Fallback - try to construct response based on example
+        if extracted_json is None and example:
+            logger.info(f"🔧 VERBOSE: Using example as fallback guidance")
+            try:
+                example_obj = json.loads(example)
+                if isinstance(example_obj, list) and len(example_obj) > 0 and isinstance(example_obj[0], dict):
+                    extracted_data = []
+                    for key in example_obj[0].keys():
+                        value = extract_value_from_text(cleaned_response, key)
+                        if value:
+                            extracted_data.append({key: value})
+                    
+                    if extracted_data:
+                        extracted_json = json.dumps(extracted_data, ensure_ascii=False)
+                        logger.info(f"✅ VERBOSE: Constructed response based on example: {extracted_json}")
+            except json.JSONDecodeError:
+                logger.warning(f"⚠️ VERBOSE: Could not parse example as JSON")
+        
+        # Return the best result we found
+        if extracted_json:
+            logger.info(f"🎉 VERBOSE: Successfully formatted response: {extracted_json}")
+            return extracted_json
+        else:
+            logger.warning(f"⚠️ VERBOSE: Could not extract valid JSON, returning original response")
+            return cleaned_response
+            
     except Exception as e:
-        logger.error(f"Error formatting response: {e}")
+        logger.error(f"❌ VERBOSE: Error formatting response: {e}")
         return llm_response
+
+def extract_value_from_text(text: str, key: str) -> str:
+    """Extract a value from text based on a key pattern"""
+    import re
+    
+    # Common patterns to look for
+    patterns = [
+        # Direct patterns
+        rf"{re.escape(key)}:\s*([^\n,}}]+)",
+        rf"{re.escape(key)}\s*:\s*([^\n,}}]+)",
+        rf"{re.escape(key)}\s*=\s*([^\n,}}]+)",
+        
+        # Date patterns (if key suggests it's a date)
+        r"(\d{1,2}[/\-\.]\d{1,2}[/\-\.]\d{2,4})",
+        r"(\d{2,4}[/\-\.]\d{1,2}[/\-\.]\d{1,2})",
+        
+        # CNPJ patterns
+        r"(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2})",
+        r"(\d{14})",
+        
+        # General number patterns
+        r"(\d+[,\.]\d+)",
+        r"(\d+)",
+    ]
+    
+    # Try each pattern
+    for pattern in patterns:
+        matches = re.findall(pattern, text, re.IGNORECASE)
+        if matches:
+            # Clean and return the first match
+            value = matches[0].strip()
+            # Remove common trailing characters
+            value = re.sub(r'[,;\.]+$', '', value)
+            if value:
+                return value
+    
+    return None
 
 def cleanup_old_files():
     """Clean up old uploaded files and temporary files"""
