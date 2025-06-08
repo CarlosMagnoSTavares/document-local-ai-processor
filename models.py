@@ -27,6 +27,10 @@ class Document(Base):
     example = Column(Text, nullable=True)
     model = Column(String(100), nullable=False)
     
+    # API Configuration - supports both Ollama and Gemini
+    ai_provider = Column(String(20), nullable=True, default="ollama")  # "ollama" or "gemini"
+    gemini_api_key = Column(Text, nullable=True)  # Only needed when ai_provider is "gemini"
+    
     # Processing results
     extracted_text = Column(Text, nullable=True)
     llm_response = Column(Text, nullable=True)
@@ -48,6 +52,7 @@ class Document(Base):
             "format_response": self.format_response,
             "example": self.example,
             "model": self.model,
+            "ai_provider": self.ai_provider,
             "llm_response": self.llm_response,
             "formatted_response": self.formatted_response,
             "error_message": self.error_message,

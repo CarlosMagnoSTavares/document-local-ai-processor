@@ -2,7 +2,7 @@ from fastapi import FastAPI, File, UploadFile, Header, HTTPException, Depends, s
 from fastapi.responses import JSONResponse
 from database import get_async_db, init_database, close_database, SessionLocal
 from models import Document, DocumentStatus
-from utils import is_allowed_file, save_uploaded_file, validate_file_size
+from utils import is_allowed_file, save_uploaded_file, validate_file_size, list_gemini_models
 from workers import extract_text_task
 from loguru import logger
 from dotenv import load_dotenv
@@ -55,7 +55,9 @@ async def upload_document(
     prompt: str = Header(..., alias="Prompt"),
     format_response: str = Header(..., alias="Format-Response"),
     model: str = Header(..., alias="Model"),
-    example: Optional[str] = Header(None, alias="Example"),  
+    example: Optional[str] = Header(None, alias="Example"),
+    ai_provider: Optional[str] = Header("ollama", alias="AI-Provider"),  # "ollama" or "gemini"
+    gemini_api_key: Optional[str] = Header(None, alias="Gemini-API-Key"),  # Required when ai_provider is "gemini"
     key: str = Depends(validate_api_key)
 ):
     """
@@ -65,8 +67,10 @@ async def upload_document(
     - Key: API authentication key
     - Prompt: Question to ask about the document
     - Format-Response: Expected response format (e.g., JSON)
-    - Model: Ollama model to use (e.g., gemma3:1b, qwen2:0.5b)
+    - Model: Model to use (e.g., gemma3:1b for Ollama, gemini-2.0-flash for Gemini)
     - Example: Optional example of expected response format
+    - AI-Provider: "ollama" (default) or "gemini"
+    - Gemini-API-Key: Required when AI-Provider is "gemini"
     
     📋 Supported file types with automatic detection:
     - Images (JPG, JPEG, PNG) → Tesseract OCR
@@ -74,17 +78,38 @@ async def upload_document(
     - Word docs (DOCX, DOC) → python-docx Parser
     - Excel files (XLSX, XLS) → openpyxl Parser
     
+    🤖 Supported AI Providers:
+    - Ollama (Local): Use local models like gemma3:1b, qwen2:0.5b, etc.
+    - Google Gemini: Use cloud models like gemini-2.0-flash, gemini-1.5-pro, etc.
+    
     🤖 The system automatically:
     1. Detects file extension
     2. Uses appropriate extraction tool
-    3. Processes with selected LLM model
+    3. Processes with selected AI provider and model
     4. Returns formatted response
     """
     try:
         logger.info(f"📤 VERBOSE: Starting document upload process")
         logger.info(f"📁 VERBOSE: Filename: {file.filename}")
+        logger.info(f"🤖 VERBOSE: AI Provider: {ai_provider}")
         logger.info(f"🤖 VERBOSE: Model requested: {model}")
         logger.info(f"❓ VERBOSE: Prompt: {prompt}")
+        
+        # Validate AI provider
+        if ai_provider not in ["ollama", "gemini"]:
+            logger.error(f"❌ VERBOSE: Invalid AI provider: {ai_provider}")
+            raise HTTPException(
+                status_code=400, 
+                detail="AI-Provider must be either 'ollama' or 'gemini'"
+            )
+        
+        # Validate Gemini API key when using Gemini
+        if ai_provider == "gemini" and not gemini_api_key:
+            logger.error(f"❌ VERBOSE: Gemini API key required when using Gemini provider")
+            raise HTTPException(
+                status_code=400,
+                detail="Gemini-API-Key header is required when AI-Provider is 'gemini'"
+            )
         
         # Validate file
         if not file.filename:
@@ -149,6 +174,8 @@ async def upload_document(
                 format_response=format_response,
                 example=example,
                 model=model,
+                ai_provider=ai_provider,
+                gemini_api_key=gemini_api_key if ai_provider == "gemini" else None,
                 status=DocumentStatus.UPLOADED
             )
             db.add(document)
@@ -169,7 +196,9 @@ async def upload_document(
             "status": "success",
             "message": "Document uploaded and processing started",
             "document_id": document_id,
-            "filename": file.filename
+            "filename": file.filename,
+            "ai_provider": ai_provider,
+            "model": model
         }
         
     except HTTPException:
@@ -655,6 +684,68 @@ async def root():
             "Compute-Mode": "cpu or gpu (compute config endpoint only)"
         }
     }
+
+@app.get("/models/gemini")
+async def list_gemini_models_endpoint(
+    gemini_api_key: str = Header(..., alias="Gemini-API-Key"),
+    key: str = Depends(validate_api_key)
+):
+    """
+    🌟 List available Google Gemini models dynamically from API
+    
+    Headers required:
+    - Key: API authentication key
+    - Gemini-API-Key: Your Google Gemini API key
+    
+    🔄 **Dynamic Model Fetching:**
+    - Fetches live from Google Gemini API
+    - Always up-to-date with latest models
+    - Automatic filtering for compatible models
+    - Sorted by preference (newer models first)
+    
+    📊 **Response includes:**
+    - Model name and description
+    - Version information
+    - Token limits
+    - Recommended model for optimal performance
+    
+    🚀 **Current Available Models (dynamic):**
+    - gemini-2.0-flash: Latest multimodal model
+    - gemini-2.5-pro-preview: Most powerful thinking model
+    - gemini-1.5-pro: Complex reasoning tasks
+    - gemini-1.5-flash: Fast and versatile performance
+    - And more as Google releases them!
+    """
+    try:
+        from utils import list_gemini_models
+        
+        logger.info(f"🌟 VERBOSE: Client requested Gemini models list")
+        logger.info(f"🔑 VERBOSE: Using provided Gemini API key (length: {len(gemini_api_key)})")
+        
+        # Fetch models dynamically from Google API
+        result = await list_gemini_models(gemini_api_key)
+        
+        if result['status'] == 'success':
+            logger.info(f"✅ VERBOSE: Successfully returned {result['total_models']} Gemini models")
+            logger.info(f"🎯 VERBOSE: Recommended model: {result['recommended_model']}")
+            return result
+        else:
+            logger.warning(f"⚠️ VERBOSE: API call failed, returning fallback models")
+            return {
+                "status": "partial_success",
+                "message": "Unable to fetch live models, showing fallback list",
+                "models": result.get('fallback_models', []),
+                "total_models": len(result.get('fallback_models', [])),
+                "recommended_model": "gemini-2.0-flash",
+                "note": "This is a fallback list. Please check your Gemini API key."
+            }
+            
+    except Exception as e:
+        logger.error(f"❌ VERBOSE: Error in models endpoint: {str(e)}")
+        return HTTPException(
+            status_code=500,
+            detail=f"Error fetching Gemini models: {str(e)}"
+        )
 
 # Error handlers
 @app.exception_handler(HTTPException)

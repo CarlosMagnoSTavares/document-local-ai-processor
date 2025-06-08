@@ -1,78 +1,226 @@
-Aja como um arquiteto de software, desenvolvedor fullstack e engenheiro de IA. Sua tarefa é criar um backend escalável, seguro e leve, que atue como um orquestrador para análise de documentos com auxílio de modelos de linguagem locais (via Ollama).
-📥 Requisitos Funcionais
-Endpoint principal: POST /upload
+Aja como um arquiteto de software, desenvolvedor fullstack e engenheiro de IA. Sua tarefa é criar um backend escalável, seguro e leve, que atue como um orquestrador para análise de documentos com auxílio de modelos de linguagem locais (via Ollama) e em nuvem (via Google Gemini API).
+
+🆕 **VERSÃO 1.3 - MULTI-PROVIDER AI**
+Este sistema agora suporta dois provedores de IA:
+- 🏠 **Ollama (Local)**: Privacidade total, modelos locais, sem custos
+- 🌟 **Google Gemini (Nuvem)**: Modelos avançados, alta performance, sempre atualizados
+
+📥 **Requisitos Funcionais**
+
+## **Endpoint Principal: POST /upload**
 Recebe um arquivo no body (ex: arquivo.pdf, arquivo.jpg, arquivo.png, arquivo.docx, arquivo.xlsx, etc.).
-Recebe parâmetros obrigatórios no header:
-Header	Descrição
-Prompt	Exemplo: "Verifique qual CNPJ existe nesse documento" (Obrigatório)
-Format-Response	Exemplo: "[{\"CNPJ\": \"\"}]" (Obrigatório)
-Example	Exemplo: "[{\"CNPJ\": \"XX.XXX.XXX/0001-XX\"}]" (Opcional)
-Model	Exemplo: "gemma3:1b" (Obrigatório)
-Key	Chave de autenticação para uso da API. Deve ser validada com valor vindo do .env (Obrigatório)
-🛠️ Requisitos Técnicos
-Instalar e rodar via Docker com base em imagem Ubuntu LTS.
-Usar OCR (Tesseract) para imagens.
-Usar PDF-to-Text, DOC/DOCX/Excel parser para documentos.
-Enfileirar o processamento:
-Fila para extração de texto (OCR ou parsing).
-Fila para envio do prompt à LLM local via Ollama.
-Fila para formatação e armazenamento da resposta.
-Utilizar Ollama com modelo gemma3:1b (outros modelos podem ser usados futuramente).
-Criar um sistema de filas para permitir processamento assíncrono e escalável.
-O backend deve:
-Rodar em máquinas leves com modelos pequenos (ex: gemma3:1b).
-Escalar em máquinas potentes, utilizando paralelização inteligente baseada no hardware.
-Banco de dados:
-Usar MySQL ou SQLite (foco em leveza).
-Persistir perguntas e respostas por até 1 hora (máximo 24h).
-Implementar limpeza automática para evitar acúmulo de arquivos e logs.
-📊 Endpoints adicionais
-GET /queue
-Retorna a lista de documentos na fila e seus status:
-Upload realizado
-Texto extraído
-Prompt processado
-Erro (se houver)
-GET /response/:id
-Retorna a resposta da LLM para o documento específico.
-📁 Organização do Projeto
-O projeto deverá incluir:
-Dockerfile completo com todas dependências instaladas (Tesseract, Python libs, OCR tools, etc.).
-Instalação e configuração do Ollama com o modelo gemma3:1b.
-Código backend completo, pronto para rodar.
-Endpoints REST documentados.
-Scripts de inicialização.
-Sistema de filas.
-Validação de headers obrigatórios.
-Logs organizados e rotacionados.
-🧪 Testes
-Inclua exemplos de chamadas curl para teste.
-Utilize o arquivo @teste.jpg presente na pasta como exemplo.
-Forneça também uma collection do Postman com todos os endpoints prontos para uso.
-📄 Documentação
-Criar um README completo, contendo:
-Instalação passo a passo (Docker, dependências, env).
-Como rodar a aplicação.
-Como testar.
-Como escalar a aplicação.
-Como modificar o modelo Ollama.
-Explicação sobre cada endpoint e seus headers.
-Estratégia de limpeza automática dos dados.
-🧠 Considerações sobre Escalabilidade
+
+### **Headers Obrigatórios:**
+| Header | Descrição | Exemplo |
+|--------|-----------|---------|
+| `Key` | Chave de autenticação para uso da API. Deve ser validada com valor vindo do .env | `myelin-ocr-llm-2024-super-secret-key` |
+| `Prompt` | Pergunta sobre o documento | `"Verifique qual CNPJ existe nesse documento"` |
+| `Format-Response` | Formato JSON esperado da resposta | `[{"CNPJ": ""}]` |
+| `Model` | Nome do modelo a utilizar | `gemma3:1b` ou `gemini-2.0-flash` |
+| `AI-Provider` | **🆕 NOVO** - Provedor de IA | `ollama` ou `gemini` |
+
+### **Headers Opcionais:**
+| Header | Descrição | Exemplo | Quando Usar |
+|--------|-----------|---------|-------------|
+| `Example` | Exemplo de resposta esperada | `[{"CNPJ": "XX.XXX.XXX/0001-XX"}]` | Para melhor formatação |
+| `Gemini-API-Key` | **🆕 NOVO** - Chave API Google Gemini | `AIzaSyC...` | Quando `AI-Provider=gemini` |
+
+🛠️ **Requisitos Técnicos**
+
+## **Infraestrutura Multi-Provider**
+- **Container Docker** baseado em Ubuntu LTS
+- **Ollama local** com modelos disponíveis (gemma3:1b, llama3:8b, qwen2:0.5b, etc.)
+- **Integração Google Gemini** com biblioteca `google-genai`
+- **OCR Tesseract** para imagens
+- **Parsers** para PDF, DOC/DOCX, Excel
+
+## **Sistema de Filas Inteligente**
+1. **Fila de Extração**: OCR ou parsing de documentos
+2. **Fila de Processamento**: 
+   - Rota Ollama (local) OU
+   - Rota Gemini (nuvem)
+3. **Fila de Formatação**: Estruturação da resposta JSON
+
+## **Gerenciamento Dinâmico de Modelos**
+### **🏠 Ollama (Local)**
+- Download automático de modelos via endpoint
+- Configuração CPU/GPU
+- Lista de modelos instalados
+
+### **🌟 Gemini (Nuvem)**
+- **Lista dinâmica** de modelos direto da API Google
+- Sempre atualizado com novos lançamentos
+- Fallback para modelos conhecidos em caso de erro
+- Suporte a modelos avançados (gemini-2.0-flash, gemini-2.5-pro-preview)
+
+## **Escalabilidade Híbrida**
 O sistema deve ser capaz de:
-Rodar em máquinas modestas sem sobrecarga.
-Escalar automaticamente (threads, workers, filas).
-Paralelizar tarefas (extração, prompt, formatação).
-Não depender de serviços externos além da LLM local e banco leve.
-🛡️ Segurança
-As requisições só serão aceitas com Key válida (armazenada no .env).
-A aplicação deve tratar falhas de upload, parsing, e resposta com mensagens claras.
-Evitar upload de arquivos potencialmente maliciosos (limitar extensões permitidas).
-Limitar tamanho dos arquivos para evitar sobrecarga.
-💻 Ambiente
-Ambiente atual:
-Windows 11
-Docker instalado
-docker -v
-Docker version 27.5.1, build 9f9e405
-Conectado à internet para baixar pacotes e imagens necessárias.
+- **Modo Local**: Rodar em máquinas modestas usando apenas Ollama
+- **Modo Híbrido**: Combinar Ollama + Gemini conforme necessidade
+- **Modo Nuvem**: Usar apenas Gemini para processamento rápido
+- **Auto-scaling**: Detectar hardware e configurar workers apropriados
+
+## **Banco de Dados**
+- Usar SQLite (foco em leveza)
+- Persistir documentos, prompts e respostas
+- Campos adicionais: `ai_provider`, `gemini_api_key`, `model_version`
+- Limpeza automática configurable (1-24h)
+
+📊 **Endpoints Completos**
+
+### **Core Endpoints**
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| `POST` | `/upload` | 🚀 Upload inteligente com auto-detecção |
+| `GET` | `/queue` | Status da fila de processamento |
+| `GET` | `/response/:id` | Resposta processada do documento |
+
+### **🆕 Gerenciamento de Modelos**
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| `GET` | `/models/list` | Lista modelos Ollama instalados |
+| `POST` | `/models/download` | Download novo modelo Ollama |
+| `GET` | `/models/gemini` | **🌟 NOVO** - Lista modelos Gemini (dinâmico) |
+
+### **⚙️ Configuração Avançada**
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| `GET` | `/config/compute` | Verificar modo CPU/GPU atual |
+| `POST` | `/config/compute` | Configurar CPU/GPU para Ollama |
+
+### **🔍 Monitoramento**
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| `GET` | `/health` | Health check da aplicação |
+| `GET` | `/` | Informações e documentação da API |
+
+📁 **Organização do Projeto Atualizada**
+
+```
+project/
+├── 🐳 Dockerfile (Ubuntu + Ollama + Python + Tesseract)
+├── 🚀 docker-compose.yml 
+├── 📋 requirements.txt (+ google-genai, httpx)
+├── 🔧 main.py (FastAPI + endpoints Gemini)
+├── 👷 workers.py (processamento multi-provider)
+├── 🛠️ utils.py (+ integração Gemini dinâmica)
+├── 🗄️ models.py (+ campos Gemini)
+├── 🔐 .env (+ configurações Gemini)
+├── 📖 README.md (documentação completa)
+├── 🧪 postman_collection.json (collection v1.3)
+├── 📝 Prompt-inicial.txt (este arquivo)
+└── ⚙️ start.sh, supervisord.conf
+```
+
+🧪 **Testes Completos**
+
+### **🏠 Teste Ollama (Local)**
+```bash
+curl -X POST "http://localhost:8000/upload" \
+  -H "Key: myelin-ocr-llm-2024-super-secret-key" \
+  -H "Prompt: Extraia o CNPJ da empresa" \
+  -H "Format-Response: [{\"cnpj\": \"\"}]" \
+  -H "Model: gemma3:1b" \
+  -H "AI-Provider: ollama" \
+  -F "file=@teste.jpg"
+```
+
+### **🌟 Teste Gemini (Nuvem)**
+```bash
+curl -X POST "http://localhost:8000/upload" \
+  -H "Key: myelin-ocr-llm-2024-super-secret-key" \
+  -H "Prompt: Extraia o CNPJ da empresa" \
+  -H "Format-Response: [{\"cnpj\": \"\"}]" \
+  -H "Model: gemini-2.0-flash" \
+  -H "AI-Provider: gemini" \
+  -H "Gemini-API-Key: AIzaSyC..." \
+  -F "file=@teste.jpg"
+```
+
+### **📊 Teste Lista Dinâmica Gemini**
+```bash
+curl -X GET "http://localhost:8000/models/gemini" \
+  -H "Key: myelin-ocr-llm-2024-super-secret-key" \
+  -H "Gemini-API-Key: AIzaSyC..."
+```
+
+📄 **Documentação Atualizada**
+
+O README deve incluir:
+
+### **🎯 Seções Principais**
+1. **Introdução Multi-Provider**
+2. **Configuração Ollama vs Gemini**
+3. **Como obter chave API Gemini**
+4. **Comparativo de Performance**
+5. **Exemplos práticos para cada provedor**
+6. **Troubleshooting específico**
+
+### **📊 Tabela Comparativa**
+| Aspecto | Ollama | Gemini |
+|---------|--------|--------|
+| Privacidade | ✅ Total | ⚠️ Nuvem |
+| Custo | ✅ Gratuito | 💰 Por uso |
+| Performance | ⚡ Variável | 🚀 Consistente |
+| Setup | 🔧 Hardware | ✅ API Key |
+| Modelos | 📦 Download | 🔄 Dinâmicos |
+
+🧠 **Considerações Avançadas de Escalabilidade**
+
+### **Estratégias Híbridas**
+- **Fallback inteligente**: Ollama → Gemini em caso de sobrecarga
+- **Balanceamento por custo**: Tarefas simples → Ollama, complexas → Gemini
+- **Roteamento por performance**: Urgentes → Gemini, batch → Ollama
+
+### **Otimizações**
+- **Cache de modelos Gemini** para reduzir calls API
+- **Pool de conexões** para APIs externas
+- **Retry logic** com backoff exponencial
+- **Rate limiting** para evitar throttling
+
+🛡️ **Segurança Aprimorada**
+
+### **🔐 Autenticação Multi-Camada**
+- **API Key local**: Validação via .env
+- **Chave Gemini**: Tratamento seguro, não logada
+- **Validação de provedores**: Verificar AI-Provider válido
+
+### **🔒 Proteções**
+- **Sanitização de inputs**: Validar headers e payloads
+- **Rate limiting por IP**: Evitar abuso
+- **Isolamento de contexto**: Containers separados
+- **Logs auditáveis**: Rastreamento sem dados sensíveis
+
+💻 **Ambiente e Compatibilidade**
+
+### **Requisitos Mínimos**
+- **Para Ollama**: 4GB RAM, CPU 2+ cores
+- **Para Gemini**: 1GB RAM, conexão internet estável
+- **Docker**: Versão 20.10+
+- **Sistema**: Windows 11, Linux, macOS
+
+### **Configurações Recomendadas**
+- **Desenvolvimento**: Ollama local + Gemini para testes
+- **Produção leve**: Apenas Gemini
+- **Produção completa**: Híbrido com balanceamento
+- **Enterprise**: Multi-region com cache distribuído
+
+🚀 **Recursos Avançados a Implementar**
+
+### **🌟 Funcionalidades Premium**
+1. **Auto-seleção de modelo** baseada no tipo de documento
+2. **Análise de custo em tempo real** (Ollama vs Gemini)
+3. **Cache inteligente** de respostas similares
+4. **Métricas de performance** por provedor
+5. **Dashboard de monitoramento** em tempo real
+6. **API de estatísticas** de uso e custos
+
+### **🔧 Integrações Futuras**
+- **Anthropic Claude**: Terceiro provedor de IA
+- **OpenAI GPT**: Integração opcional
+- **Azure OpenAI**: Para ambientes corporativos
+- **AWS Bedrock**: Para infraestrutura na nuvem
+
+Este prompt deve gerar um sistema completo, robusto e futuro-prático, capaz de evoluir com as necessidades do usuário e as inovações em IA.
+
+**🎯 Meta Final**: Sistema de análise de documentos que combina o melhor dos dois mundos - privacidade e controle local (Ollama) + poder e conveniência da nuvem (Gemini). 

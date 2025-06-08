@@ -1,14 +1,15 @@
 # 🧠 Document OCR LLM API
 
-API escalável, segura e leve para análise de documentos com auxílio de modelos de linguagem locais (Ollama).
+API escalável, segura e leve para análise de documentos com auxílio de modelos de linguagem locais (Ollama) e em nuvem (Google Gemini).
 
-## 🆕 Novidades v1.2 (Smart Upload & Configuração Avançada)
-- ✅ **🚀 SMART UPLOAD**: Detecção automática de tipo de arquivo e ferramenta
-- ✅ **⚙️ Configuração CPU/GPU**: Alterne entre CPU e GPU para Ollama
-- ✅ **🔄 Persistência**: Configurações salvas automaticamente
-- ✅ **📊 Logs Verbosos**: Mostra detecção automática e modo de processamento
-- ✅ **🤖 Gerenciamento de Modelos**: Download e listagem via API
-- ✅ **🛠️ Auto-detecção**: JPG→OCR, PDF→Parser, DOCX→Parser, etc. 
+## 🆕 Novidades v1.3 (Integração Google Gemini API)
+- ✅ **🌟 Google Gemini API**: Suporte completo à API Gemini do Google
+- ✅ **🔀 Multi-Provider**: Alterne entre Ollama (local) e Gemini (nuvem)
+- ✅ **🚀 Modelos Avançados**: Acesso aos modelos Gemini 2.0/2.5 mais recentes
+- ✅ **📊 Lista Dinâmica**: Modelos sempre atualizados direto da API Google
+- ✅ **🔑 Segurança**: Suporte a chaves API Gemini seguras
+- ✅ **⚡ Performance**: Modelos em nuvem de alta performance
+- ✅ **🛠️ Compatibilidade**: Mesma interface para ambos os provedores
 
 ## 📋 Índice
 
@@ -18,6 +19,7 @@ API escalável, segura e leve para análise de documentos com auxílio de modelo
 - [Configuração](#-configuração)
 - [Como Usar](#-como-usar)
 - [Endpoints](#-endpoints)
+- [Provedores de IA](#-provedores-de-ia)
 - [Teste](#-teste)
 - [Escalabilidade](#-escalabilidade)
 - [Segurança](#-segurança)
@@ -26,12 +28,13 @@ API escalável, segura e leve para análise de documentos com auxílio de modelo
 
 ## 🚀 Características
 
+- **🌟 Multi-Provider IA**: Suporte tanto para Ollama (local) quanto Google Gemini (nuvem)
 - **🚀 Smart Upload**: Detecção automática de tipo de arquivo e ferramenta apropriada
 - **⚙️ Configuração CPU/GPU**: Controle dinâmico do modo de processamento Ollama  
 - **OCR Avançado**: Tesseract para extração de texto de imagens (JPG, PNG)
 - **Parsers Múltiplos**: PDF, DOCX, XLSX com detecção automática
-- **LLM Local**: Integração com Ollama (qualquer modelo suportado)
-- **Gerenciamento de Modelos**: Download e listagem via API
+- **LLM Local & Nuvem**: Integração com Ollama (local) e Google Gemini (nuvem)
+- **Gerenciamento de Modelos**: Download e listagem via API (ambos provedores)
 - **Sistema de Filas**: Processamento assíncrono com Celery + Redis
 - **Modo Verbose**: Logs detalhados mostrando detecção automática
 - **Auto-Limpeza**: Remoção automática de arquivos e dados antigos
@@ -44,11 +47,15 @@ API escalável, segura e leve para análise de documentos com auxílio de modelo
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   FastAPI       │    │   Celery        │    │   Ollama        │
-│   (API Server)  │────│   (Workers)     │────│   (LLM)         │
+│   (API Server)  │────│   (Workers)     │────│   (Local LLM)   │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │
-         │                       │                       │
-         ▼                       ▼                       ▼
+         │                       │                       ▼
+         │                       │              ┌─────────────────┐
+         │                       │              │   Google        │
+         │                       └──────────────│   Gemini API    │
+         │                                      │   (Cloud LLM)   │
+         ▼                                      └─────────────────┘
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   SQLite        │    │   Redis         │    │   Tesseract     │
 │   (Database)    │    │   (Queue)       │    │   (OCR)         │
@@ -57,10 +64,10 @@ API escalável, segura e leve para análise de documentos com auxílio de modelo
 
 ### Fluxo de Processamento
 
-1. **Upload**: Cliente envia arquivo + headers obrigatórios
-2. **Validação**: Verificação de API key, tipo e tamanho do arquivo
+1. **Upload**: Cliente envia arquivo + headers obrigatórios (incluindo AI-Provider)
+2. **Validação**: Verificação de API key, tipo e tamanho do arquivo, provider IA
 3. **Fila de Extração**: Worker extrai texto (OCR/Parser)
-4. **Fila de LLM**: Worker envia prompt para Ollama
+4. **Fila de LLM**: Worker envia prompt para Ollama (local) ou Gemini (nuvem)
 5. **Fila de Formatação**: Worker formata resposta final
 6. **Resposta**: Cliente consulta resultado via API
 
@@ -72,6 +79,7 @@ API escalável, segura e leve para análise de documentos com auxílio de modelo
 - Docker Compose 2.0+
 - 4GB+ RAM (recomendado 8GB+)
 - 10GB+ espaço em disco
+- **[OPCIONAL]** Chave API do Google Gemini (para usar modelos em nuvem)
 
 ### Instalação via Docker
 
@@ -105,6 +113,26 @@ curl http://localhost:8000/health
 
 **Tempo de inicialização**: ~5-10 minutos (download do modelo gemma3:1b)
 
+## 🤖 Provedores de IA
+
+### 🏠 Ollama (Local)
+- **Vantagens**: Privacidade total, sem custos adicionais, funciona offline
+- **Modelos**: gemma3:1b, qwen2:0.5b, llama3:8b, mistral:7b, etc.
+- **Requisitos**: Hardware local com GPU/CPU adequados
+
+### 🌟 Google Gemini (Nuvem)
+- **Vantagens**: Modelos mais avançados, sem requisitos de hardware
+- **Modelos**: gemini-2.0-flash, gemini-2.5-pro-preview, gemini-1.5-pro, etc.
+- **Requisitos**: Chave API Gemini (gratuita com limites)
+
+### Como Obter Chave API Gemini
+
+1. Acesse [Google AI Studio](https://aistudio.google.com/app/apikey)
+2. Faça login com sua conta Google
+3. Clique em "Get API Key"
+4. Copie sua chave API
+5. Use no header `Gemini-API-Key` das requisições
+
 ## ⚙️ Configuração
 
 ### Arquivo .env
@@ -122,7 +150,7 @@ DATABASE_URL=sqlite:///./documents.db
 # Redis Configuration
 REDIS_URL=redis://localhost:6379/0
 
-# Ollama Configuration
+# Ollama Configuration (para uso local)
 OLLAMA_BASE_URL=http://localhost:11434
 DEFAULT_MODEL=gemma3:1b
 
@@ -143,41 +171,33 @@ LOG_LEVEL=INFO
 LOG_ROTATION=10MB
 ```
 
-### Modificar Modelo Ollama
-
-```bash
-# Entrar no container
-docker exec -it <container_name> bash
-
-# Listar modelos disponíveis
-ollama list
-
-# Instalar novo modelo
-ollama pull llama2:7b
-
-# Atualizar .env
-# DEFAULT_MODEL=llama2:7b
-```
-
 ## 📖 Como Usar
 
-### 1. 🚀 Smart Upload (Detecção Automática)
+### 1. 🏠 Usando Ollama (Local)
 
 ```bash
-# O sistema detecta automaticamente que é uma imagem e usa OCR
+# Processamento local com Ollama
 curl -X POST "http://localhost:8000/upload" \
   -H "Key: myelin-ocr-llm-2024-super-secret-key" \
   -H "Prompt: Verifique qual CNPJ existe nesse documento" \
   -H "Format-Response: [{\"CNPJ\": \"\"}]" \
   -H "Model: gemma3:1b" \
-  -F "file=@teste.jpg"
+  -H "AI-Provider: ollama" \
+  -F "file=@documento.pdf"
+```
 
-# Para PDF - detecta automaticamente e usa parser PDF
+### 2. 🌟 Usando Google Gemini (Nuvem)
+
+```bash
+# Processamento em nuvem com Gemini
 curl -X POST "http://localhost:8000/upload" \
   -H "Key: myelin-ocr-llm-2024-super-secret-key" \
-  -H "Prompt: Extraia dados pessoais deste documento" \
-  -H "Format-Response: [{\"nome\": \"\", \"cpf\": \"\"}]" \
-  -H "Model: gemma3:1b" \
+  -H "Prompt: Verifique qual CNPJ existe nesse documento e extraia todas as informações da empresa" \
+  -H "Format-Response: [{\"Dia da Leitura\": \"\"}]" \
+  -H "Model: gemini-2.0-flash" \
+  -H "AI-Provider: gemini" \
+  -H "Gemini-API-Key: SUA_CHAVE_API_GEMINI" \
+  -H "Example: [{\"Dia da Leitura\": \"31/12/9999\"}]" \
   -F "file=@documento.pdf"
 ```
 
@@ -193,23 +213,25 @@ curl -X POST "http://localhost:8000/upload" \
   "status": "success",
   "message": "Document uploaded and processing started",
   "document_id": 1,
-  "filename": "teste.jpg"
+  "filename": "documento.pdf",
+  "ai_provider": "gemini",
+  "model": "gemini-2.0-flash"
 }
 ```
 
-### 2. Verificar Status da Fila
+### 3. Verificar Status da Fila
 
 ```bash
 curl -H "Key: myelin-ocr-llm-2024-super-secret-key" "http://localhost:8000/queue"
 ```
 
-### 3. Obter Resposta
+### 4. Obter Resposta
 
 ```bash
 curl -H "Key: myelin-ocr-llm-2024-super-secret-key" "http://localhost:8000/response/1"
 ```
 
-### 4. Gerenciamento de Modelos (NOVO!)
+### 5. Gerenciamento de Modelos (NOVO!)
 
 #### Listar Modelos Disponíveis
 ```bash
@@ -249,7 +271,7 @@ curl -X POST "http://localhost:8000/models/download" \
 
 ⚠️ **Importante**: Download pode levar 5-30 minutos dependendo do modelo
 
-### 5. ⚙️ Configuração CPU/GPU (NOVO!)
+### 6. ⚙️ Configuração CPU/GPU (NOVO!)
 
 #### Verificar Modo Atual
 ```bash
@@ -287,7 +309,7 @@ curl -X POST "http://localhost:8000/config/compute" \
 
 **🔄 Configuração Persistente:** As configurações são salvas no `.env` e aplicadas automaticamente.
 
-### 6. Usando Modelos Diferentes
+### 7. Usando Modelos Diferentes
 
 ```bash
 # Upload com LLaMA3:8b (mais preciso)
@@ -303,11 +325,12 @@ curl -X POST "http://localhost:8000/upload" \
 
 | Método | Endpoint | Descrição | Headers Obrigatórios |
 |--------|----------|-----------|---------------------|
-| `POST` | `/upload` | 🚀 **SMART UPLOAD** - Auto-detecção | Key, Prompt, Format-Response, Model |
+| `POST` | `/upload` | 🚀 **SMART UPLOAD** - Auto-detecção | Key, Prompt, Format-Response, Model, AI-Provider |
 | `GET` | `/queue` | Status da fila | Key |
 | `GET` | `/response/{id}` | Resposta do documento | Key |
-| `POST` | `/models/download` | Download de modelo | Key, Model-Name |
-| `GET` | `/models/list` | Lista modelos | Key |
+| `POST` | `/models/download` | Download de modelo Ollama | Key, Model-Name |
+| `GET` | `/models/list` | Lista modelos Ollama | Key |
+| `GET` | `/models/gemini` | **🌟 NOVO** - Lista modelos Gemini | Key, Gemini-API-Key |
 | `POST` | `/config/compute` | **🆕 NOVO** - Configurar CPU/GPU | Key, Compute-Mode |
 | `GET` | `/config/compute` | **🆕 NOVO** - Ver modo atual | Key |
 | `GET` | `/health` | Health check | - |
@@ -320,8 +343,55 @@ curl -X POST "http://localhost:8000/upload" \
 | `Key` | `myelin-ocr-llm-2024-super-secret-key` | Chave de autenticação |
 | `Prompt` | `"Extraia o CNPJ"` | Pergunta sobre o documento |
 | `Format-Response` | `[{"CNPJ": ""}]` | Formato esperado da resposta |
-| `Model` | `gemma3:1b` | Modelo Ollama a usar |
+| `Model` | `gemma3:1b` ou `gemini-2.0-flash` | Modelo Ollama ou Gemini a usar |
 | `Example` | `[{"CNPJ": "12.345.678/0001-90"}]` | Exemplo de resposta (opcional) |
+| `AI-Provider` | `ollama` ou `gemini` | Provider de IA a usar |
+| `Gemini-API-Key` | `AIzaSy...` | Chave API Gemini (obrigatória quando AI-Provider=gemini) |
+
+### 🌟 Exemplos de Uso Gemini
+
+#### Listar Modelos Gemini Disponíveis
+```bash
+curl -X GET "http://localhost:8000/models/gemini" \
+  -H "Key: myelin-ocr-llm-2024-super-secret-key" \
+  -H "Gemini-API-Key: SUA_CHAVE_API_GEMINI"
+```
+
+**Resposta:**
+```json
+{
+  "status": "success",
+  "provider": "gemini",
+  "models": [
+    {
+      "name": "gemini-2.0-flash",
+      "display_name": "Gemini 2.0 Flash",
+      "description": "Latest multimodal model with next generation features",
+      "input_token_limit": "1,048,576",
+      "output_token_limit": "8,192"
+    },
+    {
+      "name": "gemini-2.5-pro-preview",
+      "display_name": "Gemini 2.5 Pro Preview", 
+      "description": "Most powerful thinking model with maximum accuracy",
+      "input_token_limit": "1,048,576",
+      "output_token_limit": "65,536"
+    }
+  ],
+  "total_models": 7,
+  "documentation": "https://ai.google.dev/gemini-api/docs/models"
+}
+```
+
+#### Comparação de Modelos Recomendados
+
+| Caso de Uso | Ollama (Local) | Gemini (Nuvem) | Vantagem |
+|-------------|----------------|-----------------|----------|
+| **Documentos Simples** | gemma3:1b | gemini-2.0-flash-lite | Local: Privacidade |
+| **Análise Complexa** | llama3:8b | gemini-2.0-flash | Nuvem: Performance |
+| **Raciocínio Avançado** | llama3:70b | gemini-2.5-pro-preview | Nuvem: Capacidade |
+| **Alto Volume** | qwen2:0.5b | gemini-1.5-flash-8b | Local: Sem limite de requests |
+| **Processamento Offline** | Qualquer | ❌ Não disponível | Local: Funcionamento offline |
 
 ### Status de Processamento
 
@@ -371,6 +441,7 @@ curl -X POST "http://localhost:8000/upload" \
   -H "Prompt: Descreva o que você vê na imagem" \
   -H "Format-Response: {\"descricao\": \"\"}" \
   -H "Model: gemma3:1b" \
+  -H "AI-Provider: ollama" \
   -F "file=@teste.jpg"
 
 # 3. Verificar status
@@ -619,9 +690,10 @@ Para **uso comercial**, incluindo:
 
 **É necessária uma licença comercial separada.** Entre em contato:
 
-📧 **Email**: license@myelin-ai.com  
-💬 **LinkedIn**: [Seu Perfil LinkedIn]  
+📧 **Email**: carlosmagnosilvatavares@gmail.com  
+💬 **LinkedIn**: https://www.linkedin.com/in/carlosmagnosilvatavares/
 📄 **Termos**: Negociáveis conforme o caso de uso
+
 
 ### ⚖️ Compliance AGPL
 Ao usar este software sob AGPL-3.0, você deve:
@@ -654,4 +726,136 @@ Para contribuir:
 
 🎯 **Pronto para usar!** O sistema está configurado para rodar em máquinas modestas e escalar conforme necessário.
 
-📜 **Licenciado sob AGPL-3.0** - Uso livre para projetos compatíveis, licença comercial para uso empresarial. 
+📜 **Licenciado sob AGPL-3.0** - Uso livre para projetos compatíveis, licença comercial para uso empresarial.
+
+---
+
+**🧠 Powered by Myelin AI - Processamento inteligente de documentos**
+
+## 🎯 **Sobre o Desenvolvimento deste Sistema**
+
+### 📝 **Prompt-inicial-para-gerar-sistema-com-cursor-e-claude4.txt**
+
+Este sistema foi **inteiramente gerado** através de engenharia de prompt avançada Criado pelo engenheiro de dados Carlos Magno utilizando **Claude Sonnet 4** no **Cursor IDE**. O arquivo `Prompt-inicial-para-gerar-sistema-com-cursor-e-claude4.txt` contém o prompt original e atualizado que foi usado para criar toda a aplicação.
+
+#### 🔄 **Como Funciona:**
+
+1. **📋 Prompt Inicial**: O arquivo contém especificações completas do sistema
+2. **🤖 Claude Sonnet 4**: Interpreta e gera código baseado nas especificações
+3. **⚡ Cursor IDE**: Facilita a implementação e refinamento do código
+4. **🔧 Iterações**: Melhorias contínuas através de prompts refinados
+
+#### 🏗️ **Arquitetura do Prompt:**
+
+```
+📝 Prompt Inicial v1.3
+├── 🎯 Objetivo Principal
+├── 📥 Requisitos Funcionais
+│   ├── Headers obrigatórios
+│   ├── Headers opcionais  
+│   └── Multi-provider support
+├── 🛠️ Requisitos Técnicos
+│   ├── Infraestrutura Docker
+│   ├── Sistema de filas
+│   ├── Gerenciamento de modelos
+│   └── Banco de dados
+├── 📊 Endpoints Completos
+│   ├── Core endpoints
+│   ├── Gerenciamento de modelos
+│   ├── Configuração avançada
+│   └── Monitoramento
+├── 🧪 Testes e Exemplos
+├── 📁 Organização do projeto
+├── 🛡️ Segurança
+└── 🚀 Recursos avançados
+```
+
+#### 📈 **Evolução do Sistema:**
+
+| Versão | Prompt Focus | Resultado |
+|--------|--------------|-----------|
+| **v1.0** | Sistema básico OCR + Ollama | Core functionality |
+| **v1.1** | Smart upload + Auto-detection | File type detection |
+| **v1.2** | CPU/GPU config + Model management | Performance optimization |
+| **v1.3** | **Multi-provider AI + Gemini** | **Cloud + Local hybrid** |
+
+#### 🎨 **Metodologia de Desenvolvimento:**
+
+1. **📋 Especificação Detalhada**
+   - Requisitos funcionais claros
+   - Exemplos de uso concretos
+   - Estrutura de arquivos definida
+
+2. **🤖 Geração Assistida por IA**
+   - Claude Sonnet 4 para lógica complexa
+   - Cursor IDE para refinamentos
+   - Iterações baseadas em feedback
+
+3. **🔧 Refinamento Contínuo**
+   - Testes em tempo real
+   - Melhorias baseadas em uso
+   - Documentação auto-atualizada
+
+4. **📊 Validação Prática**
+   - Collection Postman completa
+   - Testes automatizados
+   - Logs detalhados para debug
+
+#### 💡 **Por que este Método é Eficaz:**
+
+✅ **Especificação Completa**: O prompt detalha cada aspecto do sistema
+✅ **Consistência Arquitetural**: Mantém padrões em todo o código
+✅ **Documentação Automática**: README e collection gerados automaticamente
+✅ **Testabilidade**: Inclui testes e validações desde o início
+✅ **Escalabilidade**: Arquitetura pensada para crescimento
+✅ **Manutenibilidade**: Código limpo e bem estruturado
+
+#### 🔄 **Como Usar o Prompt:**
+
+1. **📝 Para Recriar o Sistema:**
+   ```bash
+   # Cole o conteúdo do arquivo no Claude Sonnet 4
+   # Especifique ajustes desejados
+   # Execute no Cursor IDE
+   ```
+
+2. **🔧 Para Modificações:**
+   ```bash
+   # Edite seções específicas do prompt
+   # Mantenha a estrutura geral
+   # Atualize exemplos conforme necessário
+   ```
+
+3. **📈 Para Novas Funcionalidades:**
+   ```bash
+   # Adicione à seção "Recursos Avançados"
+   # Especifique requisitos técnicos
+   # Inclua exemplos de teste
+   ```
+
+#### 🎯 **Benefícios da Abordagem:**
+
+| Vantagem | Descrição |
+|----------|-----------|
+| **⚡ Velocidade** | Sistema completo em horas, não semanas |
+| **📊 Qualidade** | Padrões consistentes e best practices |
+| **🔧 Flexibilidade** | Fácil modificação via prompt updates |
+| **📚 Documentação** | Auto-gerada e sempre atualizada |
+| **🧪 Testabilidade** | Testes incluídos desde o design |
+| **🔄 Iteração** | Melhorias rápidas baseadas em feedback |
+
+#### 🚀 **Futuro do Desenvolvimento:**
+
+Esta metodologia representa o **futuro do desenvolvimento de software**:
+- **🤖 IA como Copiloto Avançado**: Não apenas sugestões, mas arquitetura completa
+- **📝 Especificação Declarativa**: Descrever "o que" ao invés de "como"
+- **🔄 Iteração Rápida**: Mudanças arquiteturais em minutos
+- **📊 Qualidade Consistente**: Padrões mantidos automaticamente
+
+---
+
+**💡 Dica**: Use este arquivo como template para seus próprios projetos. A engenharia de prompt bem feita pode acelerar drasticamente o desenvolvimento!
+
+--- 
+
+#### Pode usar mas poh pelo menos me da o crédito, deu trabalho fazer isso aqui, olha os commits foram madrugadas a dentro para criar esse sistema.

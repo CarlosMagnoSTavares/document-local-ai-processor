@@ -392,3 +392,172 @@ def cleanup_old_files():
 def validate_file_size(file_size: int) -> bool:
     """Validate file size"""
     return file_size <= MAX_FILE_SIZE 
+
+async def send_prompt_to_gemini(prompt: str, context: str, model: str, gemini_api_key: str, format_response: str = None, example: str = None) -> str:
+    """Send prompt to Google Gemini API and get response"""
+    try:
+        from google import genai
+        
+        logger.info(f"🤖 VERBOSE: Sending prompt to Google Gemini model '{model}'")
+        logger.info(f"📄 VERBOSE: Context length: {len(context)} characters")
+        logger.info(f"❓ VERBOSE: Prompt: {prompt}")
+        if format_response:
+            logger.info(f"📋 VERBOSE: Format required: {format_response}")
+        if example:
+            logger.info(f"💡 VERBOSE: Example provided: {example}")
+        
+        # Build enhanced prompt with strict formatting instructions
+        format_instructions = ""
+        if format_response and example:
+            format_instructions = f"""
+
+CRITICAL FORMATTING INSTRUCTIONS:
+- You MUST respond ONLY with the exact JSON format specified below
+- DO NOT include any explanations, introductions, or additional text
+- DO NOT use markdown formatting or code blocks
+- Respond with ONLY the JSON structure, nothing else
+- Follow the exact pattern shown in the example
+
+Required JSON Format: {format_response}
+Example Response: {example}
+
+Your response must be EXACTLY in this JSON format. No other text is allowed."""
+        elif format_response:
+            format_instructions = f"""
+
+CRITICAL FORMATTING INSTRUCTIONS:
+- You MUST respond ONLY with the exact JSON format specified below
+- DO NOT include any explanations, introductions, or additional text
+- DO NOT use markdown formatting or code blocks
+- Respond with ONLY the JSON structure, nothing else
+
+Required JSON Format: {format_response}
+
+Your response must be EXACTLY in this JSON format. No other text is allowed."""
+
+        full_prompt = f"""Context: {context}
+
+Question: {prompt}{format_instructions}
+
+Based on the context provided above, extract the required information and respond ONLY in the specified JSON format. Do not include any explanations or additional text."""
+        
+        # Create Gemini client
+        client = genai.Client(api_key=gemini_api_key)
+        
+        logger.info(f"🔗 VERBOSE: Making request to Google Gemini API")
+        logger.debug(f"📝 VERBOSE: Full prompt: {full_prompt[:500]}..." if len(full_prompt) > 500 else f"📝 VERBOSE: Full prompt: {full_prompt}")
+        
+        # Send request to Gemini
+        response = client.models.generate_content(
+            model=model,
+            contents=full_prompt,
+            config={
+                'temperature': 0.1,  # Lower temperature for more consistent formatting
+                'top_p': 0.9,
+                'max_output_tokens': 2048,
+            }
+        )
+        
+        gemini_response = response.text.strip()
+        logger.info(f"✅ VERBOSE: Gemini response received ({len(gemini_response)} chars)")
+        logger.info(f"💬 VERBOSE: Response preview: {gemini_response[:200]}..." if len(gemini_response) > 200 else f"💬 VERBOSE: Full response: {gemini_response}")
+        
+        return gemini_response
+        
+    except Exception as e:
+        logger.error(f"❌ VERBOSE: Error sending prompt to Gemini: {e}")
+        raise 
+
+async def list_gemini_models(gemini_api_key: str) -> dict:
+    """List available Google Gemini models dynamically from API"""
+    try:
+        import httpx
+        
+        logger.info(f"🌟 VERBOSE: Fetching available Gemini models from API")
+        
+        # Call Google Gemini API to list models
+        url = f"https://generativelanguage.googleapis.com/v1beta/models?key={gemini_api_key}"
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url)
+            
+            if response.status_code == 200:
+                data = response.json()
+                models = []
+                
+                # Filter only generation models and extract relevant info
+                for model in data.get('models', []):
+                    model_name = model.get('name', '').replace('models/', '')
+                    
+                    # Only include generation models that support generateContent
+                    supported_methods = model.get('supportedGenerationMethods', [])
+                    if 'generateContent' in supported_methods:
+                        # Extract description and create clean model info
+                        description = model.get('description', '').split('.')[0]  # First sentence only
+                        
+                        models.append({
+                            'name': model_name,
+                            'description': description,
+                            'version': model.get('version', 'latest'),
+                            'input_token_limit': model.get('inputTokenLimit', 'unknown'),
+                            'output_token_limit': model.get('outputTokenLimit', 'unknown')
+                        })
+                
+                # Sort models by preference (newer versions first)
+                models.sort(key=lambda x: (
+                    '2.5' in x['name'],  # 2.5 first
+                    '2.0' in x['name'],  # then 2.0
+                    '1.5' in x['name'],  # then 1.5
+                    'flash' in x['name']  # flash variants first
+                ), reverse=True)
+                
+                logger.info(f"✅ VERBOSE: Successfully fetched {len(models)} Gemini models")
+                return {
+                    'status': 'success',
+                    'models': models,
+                    'total_models': len(models),
+                    'recommended_model': models[0]['name'] if models else 'gemini-2.0-flash'
+                }
+            else:
+                logger.error(f"❌ VERBOSE: Failed to fetch Gemini models. Status: {response.status_code}")
+                logger.error(f"❌ VERBOSE: Response: {response.text}")
+                return {
+                    'status': 'error',
+                    'message': f'Failed to fetch models from Gemini API: {response.status_code}',
+                    'fallback_models': [
+                        {
+                            'name': 'gemini-2.0-flash',
+                            'description': 'Latest multimodal model with next generation features',
+                            'version': 'latest'
+                        },
+                        {
+                            'name': 'gemini-2.5-pro-preview',
+                            'description': 'Most powerful thinking model with enhanced reasoning',
+                            'version': 'preview'
+                        },
+                        {
+                            'name': 'gemini-1.5-pro',
+                            'description': 'Advanced model for complex reasoning tasks',
+                            'version': 'stable'
+                        },
+                        {
+                            'name': 'gemini-1.5-flash',
+                            'description': 'Fast and versatile performance model',
+                            'version': 'stable'
+                        }
+                    ]
+                }
+                
+    except Exception as e:
+        logger.error(f"❌ VERBOSE: Error fetching Gemini models: {str(e)}")
+        return {
+            'status': 'error',
+            'message': f'Error fetching models: {str(e)}',
+            'fallback_models': [
+                {
+                    'name': 'gemini-2.0-flash',
+                    'description': 'Latest multimodal model (fallback)',
+                    'version': 'latest'
+                }
+            ]
+        } 

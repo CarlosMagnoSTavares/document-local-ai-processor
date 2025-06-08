@@ -1,9 +1,9 @@
 {
   "info": {
     "_postman_id": "myelin-ocr-llm-collection-2024",
-    "name": "🧠 Document OCR LLM API - Complete Collection",
-    "description": "Collection completa da API para análise de documentos com OCR e modelos de linguagem locais (Ollama)\n\n📋 **Ordem de Execução:**\n1. Status & Info\n2. Smart Upload (Auto-Detection)\n3. Monitor Processing\n4. Get Results\n5. Compute Configuration\n6. Model Management\n7. Error Testing\n\n🔑 **API Key:** myelin-ocr-llm-2024-super-secret-key\n\n🆕 **Novidades v1.2:**\n- ✅ 🚀 SMART UPLOAD - Detecção automática de tipo de arquivo\n- ✅ ⚙️ Configuração CPU/GPU para Ollama\n- ✅ 📊 Logs verbosos com detecção automática\n- ✅ 🤖 Download e gerenciamento de modelos\n- ✅ 🔄 Persistência de configurações",
-    "version": "1.0.0",
+    "name": "🧠 Document OCR LLM API - Complete Collection v1.3",
+    "description": "Collection completa da API para análise de documentos com OCR e modelos de linguagem locais (Ollama) e em nuvem (Google Gemini)\n\n📋 **Ordem de Execução:**\n1. Status & Info\n2. Model Management (Ollama + Gemini)\n3. Smart Upload (Auto-Detection)\n4. Monitor Processing\n5. Get Results\n6. Compute Configuration\n7. Error Testing\n\n🔑 **API Key:** myelin-ocr-llm-2024-super-secret-key\n🌟 **Gemini API Key:** Obtenha em https://aistudio.google.com/app/apikey\n\n🆕 **Novidades v1.3:**\n- ✅ 🌟 Google Gemini API - Suporte completo\n- ✅ 🔀 Multi-Provider - Ollama (local) + Gemini (nuvem)\n- ✅ 🚀 Modelos Avançados - Gemini 2.0/2.5\n- ✅ 📊 Lista Dinâmica - Modelos sempre atualizados\n- ✅ 🔑 Segurança - Chaves API Gemini\n- ✅ ⚡ Performance - Modelos em nuvem",
+    "version": "1.3.0",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "myelin-2024"
   },
@@ -91,106 +91,207 @@
       ]
     },
     {
-      "name": "📤 2. Smart Upload (Auto-Detection)",
-      "description": "🚀 UPLOAD INTELIGENTE - Detecta automaticamente o tipo de arquivo e usa a ferramenta correta",
+      "name": "🤖 2. Model Management",
+      "description": "🌟 NOVO - Gerenciamento de modelos para Ollama e Gemini",
       "item": [
         {
-          "name": "Smart Upload - Image (Auto OCR) 🖼️",
-          "event": [
+          "name": "🏠 Ollama Models",
+          "description": "Gerenciamento de modelos locais Ollama",
+          "item": [
             {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "if (pm.response.code === 200) {",
-                  "    const response = pm.response.json();",
-                  "    if (response.document_id) {",
-                  "        pm.collectionVariables.set('document_id', response.document_id);",
-                  "        pm.collectionVariables.set('last_uploaded_filename', response.filename);",
-                  "        console.log('✅ Document uploaded successfully!');",
-                  "        console.log('📄 Document ID:', response.document_id);",
-                  "        console.log('📁 Filename:', response.filename);",
-                  "    }",
-                  "} else {",
-                  "    console.log('❌ Upload failed:', pm.response.text());",
-                  "}"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Key",
-                "value": "{{api_key}}",
-                "type": "text",
-                "description": "🔑 API Key para autenticação"
-              },
-              {
-                "key": "Prompt",
-                "value": "Verifique qual CNPJ existe nesse documento e extraia todas as informações da empresa",
-                "type": "text",
-                "description": "❓ Pergunta sobre o documento"
-              },
-              {
-                "key": "Format-Response",
-                "value": "[{\"CNPJ\": \"\", \"empresa\": \"\", \"endereco\": \"\"}]",
-                "type": "text",
-                "description": "📋 Formato esperado da resposta (JSON)"
-              },
-              {
-                "key": "Model",
-                "value": "gemma3:1b",
-                "type": "text",
-                "description": "🤖 Modelo Ollama a utilizar"
-              },
-              {
-                "key": "Example",
-                "value": "[{\"CNPJ\": \"12.345.678/0001-90\", \"empresa\": \"Empresa Exemplo LTDA\", \"endereco\": \"Rua das Flores, 123\"}]",
-                "type": "text",
-                "description": "📝 Exemplo de resposta esperada"
-              }
-            ],
-            "body": {
-              "mode": "formdata",
-              "formdata": [
+              "name": "List Ollama Models 📋",
+              "event": [
                 {
-                  "key": "file",
-                  "type": "file",
-                  "src": [],
-                  "description": "📎 Selecione o arquivo teste.jpg ou qualquer imagem (JPG, PNG) que contenha texto"
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "if (pm.response.code === 200) {",
+                      "    const response = pm.response.json();",
+                      "    if (response.models && response.models.length > 0) {",
+                      "        // Automaticamente define o primeiro modelo como padrão",
+                      "        pm.collectionVariables.set('ollama_model', response.models[0].name);",
+                      "        console.log('✅ Ollama models loaded successfully!');",
+                      "        console.log('🤖 Default model set to:', response.models[0].name);",
+                      "        console.log('📊 Total models:', response.models.length);",
+                      "    }",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
                 }
-              ]
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Key",
+                    "value": "{{api_key}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/models/list",
+                  "host": ["{{base_url}}"],
+                  "path": ["models", "list"]
+                },
+                "description": "Lista todos os modelos Ollama disponíveis no sistema local.\n\n**Resposta:** Lista de modelos instalados\n**Auto-config:** Define automaticamente o primeiro modelo como padrão"
+              }
             },
-            "url": {
-              "raw": "{{base_url}}/upload",
-              "host": ["{{base_url}}"],
-              "path": ["upload"]
-            },
-            "description": "🚀 SMART UPLOAD para imagens - O sistema detecta automaticamente que é uma imagem e usa Tesseract OCR.\n\n**Auto-detecção:** JPG, JPEG, PNG → Tesseract OCR\n**Arquivo:** teste.jpg (incluído no projeto)\n**Processamento:** Auto-detecção → OCR → LLM → Resposta formatada"
-          },
-          "response": [
             {
-              "name": "Upload Success",
-              "originalRequest": {
+              "name": "Download Ollama Model 📥",
+              "request": {
                 "method": "POST",
                 "header": [
                   {
                     "key": "Key",
-                    "value": "{{api_key}}"
+                    "value": "{{api_key}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Model-Name",
+                    "value": "qwen2:0.5b",
+                    "type": "text",
+                    "description": "🎯 Modelo a baixar (exemplo: qwen2:0.5b, llama3:8b)"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/models/download",
+                  "host": ["{{base_url}}"],
+                  "path": ["models", "download"]
+                },
+                "description": "Baixa um novo modelo Ollama.\n\n**Modelos populares:**\n- qwen2:0.5b (ultracompacto)\n- gemma3:1b (padrão)\n- llama3:8b (avançado)\n- mistral:7b (versátil)\n\n⚠️ **Tempo:** 5-30 minutos dependendo do modelo"
+              }
+            }
+          ]
+        },
+        {
+          "name": "🌟 Gemini Models",
+          "description": "Gerenciamento de modelos Google Gemini",
+          "item": [
+            {
+              "name": "List Gemini Models 📋",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "if (pm.response.code === 200) {",
+                      "    const response = pm.response.json();",
+                      "    if (response.models && response.models.length > 0) {",
+                      "        // Automaticamente define o modelo recomendado",
+                      "        const recommendedModel = response.models.find(m => m.name === 'gemini-2.0-flash') || response.models[0];",
+                      "        pm.collectionVariables.set('gemini_model', recommendedModel.name);",
+                      "        console.log('✅ Gemini models loaded successfully!');",
+                      "        console.log('🌟 Recommended model set to:', recommendedModel.name);",
+                      "        console.log('📊 Total models:', response.models.length);",
+                      "        ",
+                      "        // Lista todos os modelos disponíveis",
+                      "        response.models.forEach(model => {",
+                      "            console.log(`🤖 ${model.name}: ${model.description}`);",
+                      "        });",
+                      "    }",
+                      "} else {",
+                      "    console.log('❌ Failed to load Gemini models. Check API key.');",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Key",
+                    "value": "{{api_key}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Gemini-API-Key",
+                    "value": "{{gemini_api_key}}",
+                    "type": "text",
+                    "description": "🔑 Sua chave API do Google Gemini"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/models/gemini",
+                  "host": ["{{base_url}}"],
+                  "path": ["models", "gemini"]
+                },
+                "description": "🌟 NOVO - Lista todos os modelos Google Gemini disponíveis dinamicamente.\n\n**Modelos atuais:**\n- gemini-2.0-flash (recomendado)\n- gemini-2.5-pro-preview (mais avançado)\n- gemini-1.5-pro (complexo)\n- gemini-1.5-flash (rápido)\n\n**Auto-config:** Define automaticamente o modelo recomendado\n**Dinâmico:** Sempre atualizado com novos modelos Google"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "📤 3. Smart Upload (Multi-Provider)",
+      "description": "🚀 UPLOAD INTELIGENTE com suporte a Ollama (local) e Gemini (nuvem)",
+      "item": [
+        {
+          "name": "🏠 Ollama (Local)",
+          "description": "Upload usando modelos locais Ollama",
+          "item": [
+            {
+              "name": "Smart Upload - Ollama Image 🖼️",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "if (pm.response.code === 200) {",
+                      "    const response = pm.response.json();",
+                      "    if (response.document_id) {",
+                      "        pm.collectionVariables.set('document_id', response.document_id);",
+                      "        pm.collectionVariables.set('last_uploaded_filename', response.filename);",
+                      "        pm.collectionVariables.set('last_ai_provider', response.ai_provider);",
+                      "        console.log('✅ Document uploaded successfully with Ollama!');",
+                      "        console.log('📄 Document ID:', response.document_id);",
+                      "        console.log('📁 Filename:', response.filename);",
+                      "        console.log('🏠 AI Provider:', response.ai_provider);",
+                      "        console.log('🤖 Model:', response.model);",
+                      "    }",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Key",
+                    "value": "{{api_key}}",
+                    "type": "text"
                   },
                   {
                     "key": "Prompt",
-                    "value": "Verifique qual CNPJ existe nesse documento"
+                    "value": "Verifique qual CNPJ existe nesse documento e extraia todas as informações da empresa",
+                    "type": "text"
                   },
                   {
                     "key": "Format-Response",
-                    "value": "[{\"CNPJ\": \"\"}]"
+                    "value": "[{\"CNPJ\": \"\", \"empresa\": \"\", \"endereco\": \"\"}]",
+                    "type": "text"
                   },
                   {
                     "key": "Model",
-                    "value": "gemma3:1b"
+                    "value": "{{ollama_model}}",
+                    "type": "text",
+                    "description": "🤖 Modelo Ollama (auto-configurado)"
+                  },
+                  {
+                    "key": "AI-Provider",
+                    "value": "ollama",
+                    "type": "text",
+                    "description": "🏠 Usando Ollama (local)"
+                  },
+                  {
+                    "key": "Example",
+                    "value": "[{\"CNPJ\": \"12.345.678/0001-90\", \"empresa\": \"Empresa Exemplo LTDA\", \"endereco\": \"Rua das Flores, 123\"}]",
+                    "type": "text"
                   }
                 ],
                 "body": {
@@ -198,7 +299,8 @@
                   "formdata": [
                     {
                       "key": "file",
-                      "type": "file"
+                      "type": "file",
+                      "src": []
                     }
                   ]
                 },
@@ -206,170 +308,162 @@
                   "raw": "{{base_url}}/upload",
                   "host": ["{{base_url}}"],
                   "path": ["upload"]
-                }
-              },
-              "status": "OK",
-              "code": 200,
-              "_postman_previewlanguage": "json",
-              "header": [
-                {
-                  "key": "Content-Type",
-                  "value": "application/json"
-                }
-              ],
-              "cookie": [],
-              "body": "{\n    \"status\": \"success\",\n    \"message\": \"Document uploaded and processing started\",\n    \"document_id\": 1,\n    \"filename\": \"teste.jpg\"\n}"
+                },
+                "description": "🏠 Upload usando Ollama (local) para imagens.\n\n**Provider:** ollama (local)\n**Auto-detecção:** JPG, PNG → Tesseract OCR\n**Vantagens:** Privacidade total, sem custos\n**Requisitos:** Hardware local adequado"
+              }
             }
           ]
         },
         {
-          "name": "Smart Upload - PDF (Auto Parser) 📄",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Key",
-                "value": "{{api_key}}",
-                "type": "text"
-              },
-              {
-                "key": "Prompt",
-                "value": "Extraia todos os dados pessoais mencionados neste documento PDF",
-                "type": "text"
-              },
-              {
-                "key": "Format-Response",
-                "value": "[{\"nome\": \"\", \"cpf\": \"\", \"rg\": \"\", \"endereco\": \"\", \"telefone\": \"\"}]",
-                "type": "text"
-              },
-              {
-                "key": "Model",
-                "value": "gemma3:1b",
-                "type": "text"
-              },
-              {
-                "key": "Example",
-                "value": "[{\"nome\": \"João Silva\", \"cpf\": \"123.456.789-00\", \"rg\": \"12.345.678-9\", \"endereco\": \"Rua das Flores, 123\", \"telefone\": \"(11) 99999-9999\"}]",
-                "type": "text"
-              }
-            ],
-            "body": {
-              "mode": "formdata",
-              "formdata": [
+          "name": "🌟 Gemini (Cloud)",
+          "description": "Upload usando Google Gemini (nuvem)",
+          "item": [
+            {
+              "name": "Smart Upload - Gemini PDF 📄",
+              "event": [
                 {
-                  "key": "file",
-                  "type": "file",
-                  "src": [],
-                  "description": "📎 Selecione um arquivo PDF"
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "if (pm.response.code === 200) {",
+                      "    const response = pm.response.json();",
+                      "    if (response.document_id) {",
+                      "        pm.collectionVariables.set('document_id', response.document_id);",
+                      "        pm.collectionVariables.set('last_uploaded_filename', response.filename);",
+                      "        pm.collectionVariables.set('last_ai_provider', response.ai_provider);",
+                      "        console.log('✅ Document uploaded successfully with Gemini!');",
+                      "        console.log('📄 Document ID:', response.document_id);",
+                      "        console.log('📁 Filename:', response.filename);",
+                      "        console.log('🌟 AI Provider:', response.ai_provider);",
+                      "        console.log('🤖 Model:', response.model);",
+                      "    }",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
                 }
-              ]
-            },
-            "url": {
-              "raw": "{{base_url}}/upload",
-              "host": ["{{base_url}}"],
-              "path": ["upload"]
-            },
-            "description": "🚀 SMART UPLOAD para PDFs - O sistema detecta automaticamente que é um PDF e usa PyPDF2 Parser.\n\n**Auto-detecção:** PDF → PyPDF2 Parser\n**Processamento:** Auto-detecção → PDF Parser → LLM → Resposta formatada"
-          },
-          "response": []
-        },
-        {
-          "name": "Smart Upload - DOCX (Auto Parser) 📝",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Key",
-                "value": "{{api_key}}",
-                "type": "text"
-              },
-              {
-                "key": "Prompt",
-                "value": "Liste todas as empresas e CNPJs mencionados neste documento",
-                "type": "text"
-              },
-              {
-                "key": "Format-Response",
-                "value": "[{\"empresa\": \"\", \"cnpj\": \"\", \"tipo\": \"\"}]",
-                "type": "text"
-              },
-              {
-                "key": "Model",
-                "value": "gemma3:1b",
-                "type": "text"
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Key",
+                    "value": "{{api_key}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Prompt",
+                    "value": "Verifique qual CNPJ existe nesse documento e extraia todas as informações da empresa",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Format-Response",
+                    "value": "[{\"Dia da Leitura\": \"\"}]",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Model",
+                    "value": "{{gemini_model}}",
+                    "type": "text",
+                    "description": "🌟 Modelo Gemini (auto-configurado)"
+                  },
+                  {
+                    "key": "AI-Provider",
+                    "value": "gemini",
+                    "type": "text",
+                    "description": "🌟 Usando Google Gemini (nuvem)"
+                  },
+                  {
+                    "key": "Gemini-API-Key",
+                    "value": "{{gemini_api_key}}",
+                    "type": "text",
+                    "description": "🔑 Chave API Gemini"
+                  },
+                  {
+                    "key": "Example",
+                    "value": "[{\"Dia da Leitura\": \"31/12/9999\"}]",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": []
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{base_url}}/upload",
+                  "host": ["{{base_url}}"],
+                  "path": ["upload"]
+                },
+                "description": "🌟 Upload usando Google Gemini (nuvem) para PDFs.\n\n**Provider:** gemini (nuvem)\n**Auto-detecção:** PDF → PyPDF2 Parser\n**Vantagens:** Modelos avançados, sem requisitos de hardware\n**Requisitos:** Chave API Gemini"
               }
-            ],
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "file",
-                  "type": "file",
-                  "src": [],
-                  "description": "📎 Selecione um arquivo DOCX"
-                }
-              ]
             },
-            "url": {
-              "raw": "{{base_url}}/upload",
-              "host": ["{{base_url}}"],
-              "path": ["upload"]
-            },
-            "description": "🚀 SMART UPLOAD para documentos Word - O sistema detecta automaticamente que é um DOCX e usa python-docx Parser.\n\n**Auto-detecção:** DOCX, DOC → python-docx Parser\n**Processamento:** Auto-detecção → DOCX Parser → LLM → Resposta formatada"
-          },
-          "response": []
-        },
-        {
-          "name": "Upload with Different Model (LLaMA3:8b) 🦙",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Key",
-                "value": "{{api_key}}",
-                "type": "text"
-              },
-              {
-                "key": "Prompt",
-                "value": "Analise este documento e extraia informações importantes de forma detalhada",
-                "type": "text"
-              },
-              {
-                "key": "Format-Response",
-                "value": "[{\"tipo_documento\": \"\", \"informações_principais\": \"\", \"dados_específicos\": \"\"}]",
-                "type": "text"
-              },
-              {
-                "key": "Model",
-                "value": "llama3:8b",
-                "type": "text",
-                "description": "🦙 Modelo mais avançado (requer download prévio)"
+            {
+              "name": "Smart Upload - Gemini Advanced (2.5 Pro) 🚀",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Key",
+                    "value": "{{api_key}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Prompt",
+                    "value": "Analise este documento de forma detalhada e extraia todas as informações relevantes com raciocínio completo",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Format-Response",
+                    "value": "[{\"tipo_documento\": \"\", \"analise_detalhada\": \"\", \"informacoes_extraidas\": \"\", \"confianca\": \"\"}]",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Model",
+                    "value": "gemini-2.5-pro-preview",
+                    "type": "text",
+                    "description": "🚀 Modelo mais avançado do Gemini"
+                  },
+                  {
+                    "key": "AI-Provider",
+                    "value": "gemini",
+                    "type": "text"
+                  },
+                  {
+                    "key": "Gemini-API-Key",
+                    "value": "{{gemini_api_key}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": []
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{base_url}}/upload",
+                  "host": ["{{base_url}}"],
+                  "path": ["upload"]
+                },
+                "description": "🚀 Upload usando o modelo mais avançado Gemini 2.5 Pro.\n\n**Modelo:** gemini-2.5-pro-preview\n**Capacidades:** Raciocínio avançado, análise complexa\n**Quando usar:** Documentos complexos que requerem análise profunda"
               }
-            ],
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "file",
-                  "type": "file",
-                  "src": [],
-                  "description": "📎 Selecione qualquer arquivo suportado"
-                }
-              ]
-            },
-            "url": {
-              "raw": "{{base_url}}/upload",
-              "host": ["{{base_url}}"],
-              "path": ["upload"]
-            },
-            "description": "Exemplo de upload usando modelo LLaMA3:8b (mais preciso).\n\n**Pré-requisito:** Baixar modelo via endpoint /models/download\n**Quando usar:** Para análises mais detalhadas\n**Vantagem:** Respostas mais precisas e elaboradas"
-          },
-          "response": []
+            }
+          ]
         }
       ]
     },
     {
-      "name": "📋 3. Monitor Processing",
+      "name": "📋 4. Monitor Processing",
       "description": "Monitoramento do processamento dos documentos",
       "item": [
         {
@@ -380,8 +474,7 @@
               {
                 "key": "Key",
                 "value": "{{api_key}}",
-                "type": "text",
-                "description": "🔑 API Key para autenticação"
+                "type": "text"
               }
             ],
             "url": {
@@ -389,125 +482,17 @@
               "host": ["{{base_url}}"],
               "path": ["queue"]
             },
-            "description": "Obtém o status de todos os documentos na fila de processamento.\n\n**Quando usar:** Para acompanhar o progresso\n**Status possíveis:**\n- uploaded: Arquivo recebido\n- text_extracted: Texto extraído\n- prompt_processed: LLM processou\n- completed: Finalizado\n- error: Erro no processamento"
-          },
-          "response": [
-            {
-              "name": "Queue Status Response",
-              "originalRequest": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Key",
-                    "value": "{{api_key}}"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/queue",
-                  "host": ["{{base_url}}"],
-                  "path": ["queue"]
-                }
-              },
-              "status": "OK",
-              "code": 200,
-              "_postman_previewlanguage": "json",
-              "header": [
-                {
-                  "key": "Content-Type",
-                  "value": "application/json"
-                }
-              ],
-              "cookie": [],
-              "body": "{\n    \"status\": \"success\",\n    \"total_documents\": 2,\n    \"queue\": [\n        {\n            \"document_id\": 2,\n            \"filename\": \"teste.jpg\",\n            \"status\": \"completed\",\n            \"created_at\": \"2024-01-01T10:30:00\",\n            \"updated_at\": \"2024-01-01T10:32:15\",\n            \"completed_at\": \"2024-01-01T10:32:15\"\n        },\n        {\n            \"document_id\": 1,\n            \"filename\": \"documento.pdf\",\n            \"status\": \"text_extracted\",\n            \"created_at\": \"2024-01-01T10:25:00\",\n            \"updated_at\": \"2024-01-01T10:27:30\",\n            \"completed_at\": null\n        }\n    ]\n}"
-            }
-          ]
+            "description": "Obtém o status de todos os documentos na fila.\n\n**Status possíveis:**\n- uploaded: Arquivo recebido\n- text_extracted: Texto extraído\n- prompt_processed: IA processou\n- completed: Finalizado\n- error: Erro no processamento"
+          }
         }
       ]
     },
     {
-      "name": "📥 4. Get Results",
+      "name": "📄 5. Get Results",
       "description": "Obtenção dos resultados processados",
       "item": [
         {
-          "name": "Get Document Response 📋",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Key",
-                "value": "{{api_key}}",
-                "type": "text",
-                "description": "🔑 API Key para autenticação"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/response/{{document_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["response", "{{document_id}}"]
-            },
-            "description": "Obtém a resposta processada para um documento específico.\n\n**Quando usar:** Após o upload para obter resultado\n**Variável:** document_id (preenchida automaticamente)\n**Aguardar:** Status 'completed' na queue"
-          },
-          "response": [
-            {
-              "name": "Completed Document Response",
-              "originalRequest": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Key",
-                    "value": "{{api_key}}"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/response/1",
-                  "host": ["{{base_url}}"],
-                  "path": ["response", "1"]
-                }
-              },
-              "status": "OK",
-              "code": 200,
-              "_postman_previewlanguage": "json",
-              "header": [
-                {
-                  "key": "Content-Type",
-                  "value": "application/json"
-                }
-              ],
-              "cookie": [],
-              "body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"document_id\": 1,\n        \"filename\": \"teste.jpg\",\n        \"status\": \"completed\",\n        \"created_at\": \"2024-01-01T10:30:00\",\n        \"completed_at\": \"2024-01-01T10:32:15\",\n        \"response\": \"[{\\\"CNPJ\\\": \\\"12.345.678/0001-90\\\", \\\"empresa\\\": \\\"Empresa Exemplo LTDA\\\"}]\",\n        \"llm_response\": \"Baseado na análise da imagem, identifiquei o CNPJ 12.345.678/0001-90 pertencente à empresa Empresa Exemplo LTDA.\"\n    }\n}"
-            },
-            {
-              "name": "Processing Document Response",
-              "originalRequest": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Key",
-                    "value": "{{api_key}}"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/response/1",
-                  "host": ["{{base_url}}"],
-                  "path": ["response", "1"]
-                }
-              },
-              "status": "OK",
-              "code": 200,
-              "_postman_previewlanguage": "json",
-              "header": [
-                {
-                  "key": "Content-Type",
-                  "value": "application/json"
-                }
-              ],
-              "cookie": [],
-              "body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"document_id\": 1,\n        \"filename\": \"teste.jpg\",\n        \"status\": \"text_extracted\",\n        \"created_at\": \"2024-01-01T10:30:00\",\n        \"completed_at\": null,\n        \"message\": \"Document is still being processed\"\n    }\n}"
-            }
-          ]
-        },
-        {
-          "name": "Get Specific Document (ID: 1) 🎯",
+          "name": "Get Document Response 📄",
           "request": {
             "method": "GET",
             "header": [
@@ -518,30 +503,28 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/response/1",
+              "raw": "{{base_url}}/response/{{document_id}}",
               "host": ["{{base_url}}"],
-              "path": ["response", "1"]
+              "path": ["response", "{{document_id}}"]
             },
-            "description": "Exemplo fixo para obter resposta do documento ID 1.\n\n**Quando usar:** Para testar com ID específico"
-          },
-          "response": []
+            "description": "Obtém a resposta processada de um documento específico.\n\n**Variável:** document_id (auto-configurada após upload)\n**Resposta:** Inclui texto extraído, resposta da IA e resposta formatada"
+          }
         }
       ]
     },
     {
-      "name": "⚙️ 5. Compute Configuration",
-      "description": "Configuração de modo de processamento (CPU/GPU)",
+      "name": "⚙️ 6. Compute Configuration",
+      "description": "Configuração de CPU/GPU para Ollama",
       "item": [
         {
-          "name": "Get Current Compute Mode 📊",
+          "name": "Get Current Compute Mode 🔍",
           "request": {
             "method": "GET",
             "header": [
               {
                 "key": "Key",
                 "value": "{{api_key}}",
-                "type": "text",
-                "description": "🔑 API Key para autenticação"
+                "type": "text"
               }
             ],
             "url": {
@@ -549,98 +532,8 @@
               "host": ["{{base_url}}"],
               "path": ["config", "compute"]
             },
-            "description": "Obtém o modo de processamento atual do Ollama.\n\n**Quando usar:** Para verificar se está usando CPU ou GPU\n**Resposta:** Configuração atual e variáveis de ambiente"
-          },
-          "response": [
-            {
-              "name": "Compute Mode Response",
-              "originalRequest": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Key",
-                    "value": "{{api_key}}"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/config/compute",
-                  "host": ["{{base_url}}"],
-                  "path": ["config", "compute"]
-                }
-              },
-              "status": "OK",
-              "code": 200,
-              "_postman_previewlanguage": "json",
-              "header": [
-                {
-                  "key": "Content-Type",
-                  "value": "application/json"
-                }
-              ],
-              "cookie": [],
-              "body": "{\n    \"status\": \"success\",\n    \"compute_mode\": \"cpu\",\n    \"gpu_enabled\": false,\n    \"cuda_devices\": \"\",\n    \"config\": {\n        \"OLLAMA_COMPUTE_MODE\": \"cpu\",\n        \"OLLAMA_GPU_ENABLED\": \"0\",\n        \"CUDA_VISIBLE_DEVICES\": \"\"\n    }\n}"
-            }
-          ]
-        },
-        {
-          "name": "Set CPU Mode 🖥️",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Key",
-                "value": "{{api_key}}",
-                "type": "text",
-                "description": "🔑 API Key para autenticação"
-              },
-              {
-                "key": "Compute-Mode",
-                "value": "cpu",
-                "type": "text",
-                "description": "🖥️ Modo de processamento CPU"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/config/compute",
-              "host": ["{{base_url}}"],
-              "path": ["config", "compute"]
-            },
-            "description": "Configura o Ollama para usar apenas CPU.\n\n**Quando usar:** Para economizar energia ou quando não há GPU\n**Efeito:** Reinicia Ollama em modo CPU"
-          },
-          "response": [
-            {
-              "name": "CPU Mode Set",
-              "originalRequest": {
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Key",
-                    "value": "{{api_key}}"
-                  },
-                  {
-                    "key": "Compute-Mode",
-                    "value": "cpu"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/config/compute",
-                  "host": ["{{base_url}}"],
-                  "path": ["config", "compute"]
-                }
-              },
-              "status": "OK",
-              "code": 200,
-              "_postman_previewlanguage": "json",
-              "header": [
-                {
-                  "key": "Content-Type",
-                  "value": "application/json"
-                }
-              ],
-              "cookie": [],
-              "body": "{\n    \"status\": \"success\",\n    \"message\": \"Compute mode set to CPU\",\n    \"compute_mode\": \"cpu\",\n    \"gpu_enabled\": false,\n    \"restart_required\": false\n}"
-            }
-          ]
+            "description": "Verifica o modo de computação atual do Ollama (CPU ou GPU)."
+          }
         },
         {
           "name": "Set GPU Mode 🚀",
@@ -650,14 +543,12 @@
               {
                 "key": "Key",
                 "value": "{{api_key}}",
-                "type": "text",
-                "description": "🔑 API Key para autenticação"
+                "type": "text"
               },
               {
                 "key": "Compute-Mode",
                 "value": "gpu",
-                "type": "text",
-                "description": "🚀 Modo de processamento GPU"
+                "type": "text"
               }
             ],
             "url": {
@@ -665,175 +556,48 @@
               "host": ["{{base_url}}"],
               "path": ["config", "compute"]
             },
-            "description": "Configura o Ollama para usar GPU (se disponível).\n\n**Quando usar:** Para processamento mais rápido com GPU\n**Efeito:** Reinicia Ollama em modo GPU\n**Requisito:** CUDA compatível"
-          },
-          "response": [
-            {
-              "name": "GPU Mode Set",
-              "originalRequest": {
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Key",
-                    "value": "{{api_key}}"
-                  },
-                  {
-                    "key": "Compute-Mode",
-                    "value": "gpu"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/config/compute",
-                  "host": ["{{base_url}}"],
-                  "path": ["config", "compute"]
-                }
-              },
-              "status": "OK",
-              "code": 200,
-              "_postman_previewlanguage": "json",
-              "header": [
-                {
-                  "key": "Content-Type",
-                  "value": "application/json"
-                }
-              ],
-              "cookie": [],
-              "body": "{\n    \"status\": \"success\",\n    \"message\": \"Compute mode set to GPU\",\n    \"compute_mode\": \"gpu\",\n    \"gpu_enabled\": true,\n    \"restart_required\": false\n}"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "name": "🤖 6. Model Management",
-      "description": "Gerenciamento de modelos Ollama",
-      "item": [
-        {
-          "name": "List Available Models 📋",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Key",
-                "value": "{{api_key}}",
-                "type": "text",
-                "description": "🔑 API Key para autenticação"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/models/list",
-              "host": ["{{base_url}}"],
-              "path": ["models", "list"]
-            },
-            "description": "Lista todos os modelos Ollama disponíveis no sistema.\n\n**Quando usar:** Para verificar modelos instalados\n**Resposta:** Lista de modelos com status"
-          },
-          "response": [
-            {
-              "name": "Models List Response",
-              "originalRequest": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Key",
-                    "value": "{{api_key}}"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/models/list",
-                  "host": ["{{base_url}}"],
-                  "path": ["models", "list"]
-                }
-              },
-              "status": "OK",
-              "code": 200,
-              "_postman_previewlanguage": "json",
-              "header": [
-                {
-                  "key": "Content-Type",
-                  "value": "application/json"
-                }
-              ],
-              "cookie": [],
-              "body": "{\n    \"status\": \"success\",\n    \"models\": [\n        {\n            \"name\": \"gemma3:1b\",\n            \"status\": \"available\"\n        },\n        {\n            \"name\": \"llama3:8b\",\n            \"status\": \"available\"\n        }\n    ],\n    \"total_models\": 2\n}"
-            }
-          ]
+            "description": "Configura Ollama para usar GPU (melhor performance)."
+          }
         },
         {
-          "name": "Download New Model 📥",
+          "name": "Set CPU Mode 💻",
           "request": {
             "method": "POST",
             "header": [
               {
                 "key": "Key",
                 "value": "{{api_key}}",
-                "type": "text",
-                "description": "🔑 API Key para autenticação"
+                "type": "text"
               },
               {
-                "key": "Model-Name",
-                "value": "gemma2:2b",
-                "type": "text",
-                "description": "🤖 Nome do modelo para download (equilibrado, 1.6GB)"
+                "key": "Compute-Mode",
+                "value": "cpu",
+                "type": "text"
               }
             ],
             "url": {
-              "raw": "{{base_url}}/models/download",
+              "raw": "{{base_url}}/config/compute",
               "host": ["{{base_url}}"],
-              "path": ["models", "download"]
+              "path": ["config", "compute"]
             },
-            "description": "Faz download de um novo modelo Ollama.\n\n**Quando usar:** Para instalar novos modelos\n**🤖 Modelos Válidos:**\n- **LLaMA 3**: llama3:8b, llama3:70b\n- **Gemma 2**: gemma2:2b, gemma2:9b, gemma2:27b\n- **Mistral**: mistral:7b, mistral:instruct\n- **Qwen 2**: qwen2:0.5b, qwen2:1.5b, qwen2:7b\n- **Phi-3**: phi3:mini, phi3:medium\n\n**💡 Recomendações:**\n- qwen2:0.5b (500MB) - Mais rápido\n- gemma2:2b (1.6GB) - Equilibrado\n- llama3:8b (4.7GB) - Mais preciso\n\n**Atenção:** Download pode levar vários minutos"
-          },
-          "response": [
-            {
-              "name": "Model Download Success",
-              "originalRequest": {
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Key",
-                    "value": "{{api_key}}"
-                  },
-                  {
-                    "key": "Model-Name",
-                    "value": "llama3:8b"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/models/download",
-                  "host": ["{{base_url}}"],
-                  "path": ["models", "download"]
-                }
-              },
-              "status": "OK",
-              "code": 200,
-              "_postman_previewlanguage": "json",
-              "header": [
-                {
-                  "key": "Content-Type",
-                  "value": "application/json"
-                }
-              ],
-              "cookie": [],
-              "body": "{\n    \"status\": \"success\",\n    \"message\": \"Model llama3:8b downloaded successfully\",\n    \"model_name\": \"llama3:8b\",\n    \"output\": \"pulling manifest\\npulling layers...\"\n}"
-            }
-          ]
+            "description": "Configura Ollama para usar CPU (modo econômico)."
+          }
         }
       ]
     },
     {
       "name": "❌ 7. Error Testing",
-      "description": "Testes de erro e validação",
+      "description": "Testes de cenários de erro para validação",
       "item": [
         {
-          "name": "Test Invalid API Key 🔐",
+          "name": "Invalid API Key ❌",
           "request": {
             "method": "GET",
             "header": [
               {
                 "key": "Key",
-                "value": "invalid-key-test-123",
-                "type": "text",
-                "description": "🚫 API Key inválida para teste"
+                "value": "invalid-key",
+                "type": "text"
               }
             ],
             "url": {
@@ -841,41 +605,11 @@
               "host": ["{{base_url}}"],
               "path": ["queue"]
             },
-            "description": "Testa o comportamento da API com uma chave inválida.\n\n**Resultado esperado:** Erro 401 Unauthorized\n**Quando usar:** Para validar segurança"
-          },
-          "response": [
-            {
-              "name": "Invalid API Key Response",
-              "originalRequest": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Key",
-                    "value": "invalid-key"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/queue",
-                  "host": ["{{base_url}}"],
-                  "path": ["queue"]
-                }
-              },
-              "status": "Unauthorized",
-              "code": 401,
-              "_postman_previewlanguage": "json",
-              "header": [
-                {
-                  "key": "Content-Type",
-                  "value": "application/json"
-                }
-              ],
-              "cookie": [],
-              "body": "{\n    \"status\": \"error\",\n    \"message\": \"Invalid API key\",\n    \"status_code\": 401\n}"
-            }
-          ]
+            "description": "Testa resposta com chave API inválida.\n\n**Esperado:** HTTP 401 Unauthorized"
+          }
         },
         {
-          "name": "Test Invalid Model Download 🚫",
+          "name": "Missing Gemini API Key ❌",
           "request": {
             "method": "POST",
             "header": [
@@ -885,156 +619,91 @@
                 "type": "text"
               },
               {
-                "key": "Model-Name",
-                "value": "invalid:model",
-                "type": "text",
-                "description": "🚫 Modelo inválido para teste de erro"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/models/download",
-              "host": ["{{base_url}}"],
-              "path": ["models", "download"]
-            },
-            "description": "Testa o comportamento quando se tenta baixar um modelo que não existe.\n\n**Resultado esperado:** Erro 404 com mensagem clara\n**Quando usar:** Para validar tratamento de modelos inválidos"
-          },
-          "response": [
-            {
-              "name": "Invalid Model Response",
-              "originalRequest": {
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Key",
-                    "value": "{{api_key}}"
-                  },
-                  {
-                    "key": "Model-Name",
-                    "value": "invalid:model"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/models/download",
-                  "host": ["{{base_url}}"],
-                  "path": ["models", "download"]
-                }
+                "key": "Prompt",
+                "value": "Test prompt",
+                "type": "text"
               },
-              "status": "Not Found",
-              "code": 404,
-              "_postman_previewlanguage": "json",
-              "header": [
-                {
-                  "key": "Content-Type",
-                  "value": "application/json"
-                }
-              ],
-              "cookie": [],
-              "body": "{\n    \"status\": \"error\",\n    \"message\": \"Model 'invalid:model' does not exist. Please check the model name and try again.\",\n    \"status_code\": 404\n}"
-            }
-          ]
-        },
-        {
-          "name": "Test Document Not Found 🔍",
-          "request": {
-            "method": "GET",
-            "header": [
               {
-                "key": "Key",
-                "value": "{{api_key}}",
+                "key": "Format-Response",
+                "value": "{}",
+                "type": "text"
+              },
+              {
+                "key": "Model",
+                "value": "gemini-2.0-flash",
+                "type": "text"
+              },
+              {
+                "key": "AI-Provider",
+                "value": "gemini",
                 "type": "text"
               }
             ],
-            "url": {
-              "raw": "{{base_url}}/response/999999",
-              "host": ["{{base_url}}"],
-              "path": ["response", "999999"]
-            },
-            "description": "Testa o comportamento quando um documento não existe.\n\n**Resultado esperado:** Erro 404 Not Found\n**Quando usar:** Para validar tratamento de erros"
-          },
-          "response": [
-            {
-              "name": "Document Not Found Response",
-              "originalRequest": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Key",
-                    "value": "{{api_key}}"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/response/999999",
-                  "host": ["{{base_url}}"],
-                  "path": ["response", "999999"]
-                }
-              },
-              "status": "Not Found",
-              "code": 404,
-              "_postman_previewlanguage": "json",
-              "header": [
+            "body": {
+              "mode": "formdata",
+              "formdata": [
                 {
-                  "key": "Content-Type",
-                  "value": "application/json"
+                  "key": "file",
+                  "type": "file",
+                  "src": []
                 }
-              ],
-              "cookie": [],
-              "body": "{\n    \"status\": \"error\",\n    \"message\": \"Document not found\",\n    \"status_code\": 404\n}"
-            }
-          ]
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/upload",
+              "host": ["{{base_url}}"],
+              "path": ["upload"]
+            },
+            "description": "Testa upload com Gemini sem fornecer API key.\n\n**Esperado:** HTTP 400 - Gemini-API-Key required"
+          }
         }
       ]
-    }
-  ],
-  "event": [
-    {
-      "listen": "prerequest",
-      "script": {
-        "type": "text/javascript",
-        "exec": [
-          "// Pre-request script global",
-          "console.log('🚀 Executando request para:', pm.request.url);"
-        ]
-      }
-    },
-    {
-      "listen": "test",
-      "script": {
-        "type": "text/javascript",
-        "exec": [
-          "// Test script global",
-          "if (pm.response.code >= 200 && pm.response.code < 300) {",
-          "    console.log('✅ Request executado com sucesso!');",
-          "} else {",
-          "    console.log('❌ Request falhou com status:', pm.response.code);",
-          "}"
-        ]
-      }
     }
   ],
   "variable": [
     {
       "key": "base_url",
       "value": "http://localhost:8000",
-      "type": "string",
-      "description": "🌐 URL base da API"
+      "type": "string"
     },
     {
       "key": "api_key",
       "value": "myelin-ocr-llm-2024-super-secret-key",
+      "type": "string"
+    },
+    {
+      "key": "gemini_api_key",
+      "value": "YOUR_GEMINI_API_KEY_HERE",
       "type": "string",
-      "description": "🔑 Chave de API para autenticação"
+      "description": "🔑 Substitua pela sua chave API do Google Gemini"
     },
     {
       "key": "document_id",
-      "value": "1",
+      "value": "",
       "type": "string",
-      "description": "📄 ID do documento (preenchido automaticamente após upload)"
+      "description": "📄 Auto-configurado após upload"
     },
     {
       "key": "last_uploaded_filename",
       "value": "",
+      "type": "string"
+    },
+    {
+      "key": "last_ai_provider",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "ollama_model",
+      "value": "gemma3:1b",
       "type": "string",
-      "description": "📁 Nome do último arquivo enviado"
+      "description": "🏠 Modelo Ollama (auto-configurado)"
+    },
+    {
+      "key": "gemini_model",
+      "value": "gemini-2.0-flash",
+      "type": "string",
+      "description": "🌟 Modelo Gemini (auto-configurado)"
     }
   ]
 } 

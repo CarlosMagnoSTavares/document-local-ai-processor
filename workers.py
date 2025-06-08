@@ -2,7 +2,7 @@ from celery import Celery
 from sqlalchemy.orm import Session
 from database import SessionLocal, init_database_sync
 from models import Document, DocumentStatus
-from utils import extract_text_from_file, send_prompt_to_ollama, format_llm_response, cleanup_old_files
+from utils import extract_text_from_file, send_prompt_to_ollama, send_prompt_to_gemini, format_llm_response, cleanup_old_files, list_gemini_models
 from loguru import logger
 import os
 from datetime import datetime
@@ -97,23 +97,41 @@ def process_prompt_task(self, document_id: int):
         logger.info(f"🤖 VERBOSE: Starting prompt processing for document {document_id}")
         logger.info(f"🎯 VERBOSE: Prompt: {document.prompt}")
         logger.info(f"🤖 VERBOSE: Model: {document.model}")
+        logger.info(f"🤖 VERBOSE: AI Provider: {document.ai_provider}")
         logger.info(f"📄 VERBOSE: Context length: {len(document.extracted_text)} characters")
         
-        # Send prompt to Ollama
-        logger.info(f"🔄 VERBOSE: Setting up async event loop for Ollama call")
+        # Send prompt to appropriate AI provider
+        logger.info(f"🔄 VERBOSE: Setting up async event loop for AI call")
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         
         try:
-            llm_response = loop.run_until_complete(
-                send_prompt_to_ollama(
-                    document.prompt,
-                    document.extracted_text,
-                    document.model,
-                    document.format_response,
-                    document.example
+            if document.ai_provider == "gemini":
+                logger.info(f"🌟 VERBOSE: Using Google Gemini API")
+                if not document.gemini_api_key:
+                    raise Exception("Gemini API key is required for Gemini provider")
+                
+                llm_response = loop.run_until_complete(
+                    send_prompt_to_gemini(
+                        document.prompt,
+                        document.extracted_text,
+                        document.model,
+                        document.gemini_api_key,
+                        document.format_response,
+                        document.example
+                    )
                 )
-            )
+            else:
+                logger.info(f"🏠 VERBOSE: Using Ollama (Local)")
+                llm_response = loop.run_until_complete(
+                    send_prompt_to_ollama(
+                        document.prompt,
+                        document.extracted_text,
+                        document.model,
+                        document.format_response,
+                        document.example
+                    )
+                )
         finally:
             loop.close()
         
