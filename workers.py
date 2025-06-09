@@ -11,6 +11,9 @@ import asyncio
 
 load_dotenv()
 
+# Configuration
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+
 # Initialize database
 init_database_sync()
 
@@ -35,7 +38,7 @@ celery_app.conf.update(
 
 @celery_app.task(bind=True, max_retries=3)
 def extract_text_task(self, document_id: int):
-    """Extract text from uploaded document"""
+    """Extract text from uploaded file"""
     db = SessionLocal()
     try:
         # Get document from database
@@ -43,18 +46,67 @@ def extract_text_task(self, document_id: int):
         if not document:
             raise Exception(f"Document with id {document_id} not found")
         
-        logger.info(f"🔄 VERBOSE: Starting text extraction for document {document_id}")
+        logger.info(f"🔍 VERBOSE: Starting text extraction for document {document_id}")
         logger.info(f"📁 VERBOSE: File path: {document.file_path}")
-        logger.info(f"📋 VERBOSE: File type: {document.file_type}")
+        logger.info(f"📄 VERBOSE: File type: {document.file_type}")
+        logger.info(f"📝 VERBOSE: Filename: {document.filename}")
+        
+        # Verificar se o arquivo existe
+        if not document.file_path or not os.path.exists(document.file_path):
+            error_msg = f"File not found: {document.file_path}"
+            logger.error(f"❌ VERBOSE: {error_msg}")
+            raise Exception(error_msg)
+        
+        logger.info(f"✅ VERBOSE: File exists, proceeding with extraction")
         
         # Extract text from file
         extracted_text = extract_text_from_file(document.file_path, document.file_type)
         
-        # Update document in database
+        # Verificação crítica do texto extraído
+        logger.info(f"🔍 VERBOSE: Extracted text length: {len(extracted_text) if extracted_text else 0}")
+        logger.info(f"🔍 VERBOSE: Extracted text preview: {extracted_text[:200] if extracted_text else 'None'}...")
+        
+        # Verificar se o texto foi realmente extraído
+        if not extracted_text or not extracted_text.strip():
+            logger.warning(f"⚠️ VERBOSE: No text extracted from file: {document.file_path}")
+            logger.warning(f"⚠️ VERBOSE: File type: {document.file_type}")
+            logger.warning(f"⚠️ VERBOSE: File exists: {os.path.exists(document.file_path) if document.file_path else False}")
+            # Definir texto padrão para evitar problemas
+            extracted_text = f"[ERRO: Não foi possível extrair texto do arquivo {document.filename}]"
+        
+        # CRÍTICO: Atualizar documento no banco com verificação robusta
+        logger.info(f"💾 VERBOSE: Saving extracted text to database...")
+        logger.info(f"💾 VERBOSE: Text to save length: {len(extracted_text)}")
+        
+        # Atualizar campos um por um para garantir que sejam salvos
         document.extracted_text = extracted_text
         document.status = DocumentStatus.TEXT_EXTRACTED
         document.updated_at = datetime.utcnow()
+        
+        # Commit com verificação
+        logger.info(f"💾 VERBOSE: Committing to database...")
         db.commit()
+        
+        # VERIFICAÇÃO CRÍTICA: Refresh e verificar se foi salvo
+        db.refresh(document)
+        logger.info(f"🔍 VERBOSE: After commit - extracted_text length in DB: {len(document.extracted_text) if document.extracted_text else 0}")
+        logger.info(f"🔍 VERBOSE: After commit - status in DB: {document.status}")
+        
+        # Verificação adicional: fazer nova query para confirmar
+        verification_doc = db.query(Document).filter(Document.id == document_id).first()
+        if verification_doc:
+            logger.info(f"✅ VERBOSE: Verification query - extracted_text length: {len(verification_doc.extracted_text) if verification_doc.extracted_text else 0}")
+            logger.info(f"✅ VERBOSE: Verification query - status: {verification_doc.status}")
+            
+            if not verification_doc.extracted_text:
+                logger.error(f"❌ CRITICAL: Text was not saved to database! Attempting manual save...")
+                # Tentar salvar novamente
+                verification_doc.extracted_text = extracted_text
+                verification_doc.status = DocumentStatus.TEXT_EXTRACTED
+                verification_doc.updated_at = datetime.utcnow()
+                db.commit()
+                db.refresh(verification_doc)
+                logger.info(f"🔄 VERBOSE: After manual save - extracted_text length: {len(verification_doc.extracted_text) if verification_doc.extracted_text else 0}")
         
         logger.info(f"✅ VERBOSE: Text extraction completed for document {document_id}")
         logger.info(f"📊 VERBOSE: Extracted {len(extracted_text)} characters")
@@ -63,21 +115,27 @@ def extract_text_task(self, document_id: int):
         logger.info(f"🔗 VERBOSE: Chaining to prompt processing task")
         process_prompt_task.delay(document_id)
         
-        return {"status": "success", "document_id": document_id}
+        return {"status": "success", "document_id": document_id, "extracted_length": len(extracted_text)}
         
     except Exception as e:
-        logger.error(f"Error extracting text for document {document_id}: {e}")
+        logger.error(f"❌ VERBOSE: Error extracting text for document {document_id}: {e}")
+        logger.error(f"❌ VERBOSE: Exception type: {type(e).__name__}")
+        logger.error(f"❌ VERBOSE: Exception details: {str(e)}")
         
         # Update document status to error
-        if 'document' in locals():
-            document.status = DocumentStatus.ERROR
-            document.error_message = str(e)
-            document.updated_at = datetime.utcnow()
-            db.commit()
+        try:
+            if 'document' in locals():
+                document.status = DocumentStatus.ERROR
+                document.error_message = str(e)
+                document.updated_at = datetime.utcnow()
+                db.commit()
+                logger.info(f"💾 VERBOSE: Error status saved to database")
+        except Exception as db_error:
+            logger.error(f"❌ VERBOSE: Failed to save error status: {db_error}")
         
         # Retry logic
         if self.request.retries < self.max_retries:
-            logger.info(f"Retrying text extraction for document {document_id} (attempt {self.request.retries + 1})")
+            logger.info(f"🔄 VERBOSE: Retrying text extraction for document {document_id} (attempt {self.request.retries + 1})")
             raise self.retry(countdown=60 * (2 ** self.request.retries))
         
         raise e
@@ -98,7 +156,26 @@ def process_prompt_task(self, document_id: int):
         logger.info(f"🎯 VERBOSE: Prompt: {document.prompt}")
         logger.info(f"🤖 VERBOSE: Model: {document.model}")
         logger.info(f"🤖 VERBOSE: AI Provider: {document.ai_provider}")
-        logger.info(f"📄 VERBOSE: Context length: {len(document.extracted_text)} characters")
+        
+        # VERIFICAÇÃO CRÍTICA: Verificar se temos texto extraído
+        extracted_text = document.extracted_text or ""
+        logger.info(f"📄 VERBOSE: Context length: {len(extracted_text)} characters")
+        logger.info(f"📄 VERBOSE: Context preview: {extracted_text[:200] if extracted_text else 'EMPTY'}...")
+        
+        if not extracted_text.strip():
+            logger.error(f"❌ CRITICAL: No extracted text available for document {document_id}")
+            logger.error(f"❌ CRITICAL: Document status: {document.status}")
+            logger.error(f"❌ CRITICAL: This should not happen if extraction was successful!")
+            
+            # Tentar recarregar o documento para verificar
+            db.refresh(document)
+            extracted_text = document.extracted_text or ""
+            logger.info(f"🔄 VERBOSE: After refresh - extracted_text length: {len(extracted_text)}")
+            
+            if not extracted_text.strip():
+                logger.warning(f"⚠️ VERBOSE: Still no extracted text - will proceed with empty context")
+                logger.warning(f"⚠️ VERBOSE: LLM may use general knowledge instead of document content")
+                extracted_text = f"[AVISO: Texto não foi extraído do documento {document.filename}. Responda baseado em conhecimento geral.]"
         
         # Send prompt to appropriate AI provider
         logger.info(f"🔄 VERBOSE: Setting up async event loop for AI call")
@@ -111,10 +188,10 @@ def process_prompt_task(self, document_id: int):
                 if not document.gemini_api_key:
                     raise Exception("Gemini API key is required for Gemini provider")
                 
-                llm_response = loop.run_until_complete(
+                llm_response, full_prompt = loop.run_until_complete(
                     send_prompt_to_gemini(
                         document.prompt,
-                        document.extracted_text,
+                        extracted_text,
                         document.model,
                         document.gemini_api_key,
                         document.format_response,
@@ -123,10 +200,33 @@ def process_prompt_task(self, document_id: int):
                 )
             else:
                 logger.info(f"🏠 VERBOSE: Using Ollama (Local)")
-                llm_response = loop.run_until_complete(
+                
+                # Verificar se Ollama está disponível
+                try:
+                    import httpx
+                    async def check_ollama():
+                        async with httpx.AsyncClient(timeout=5) as client:
+                            response = await client.get(f"{OLLAMA_BASE_URL}/api/tags")
+                            return response.status_code == 200
+                    
+                    ollama_available = loop.run_until_complete(check_ollama())
+                    
+                    if not ollama_available:
+                        logger.error(f"❌ CRITICAL: Ollama not available at {OLLAMA_BASE_URL}")
+                        logger.error(f"❌ CRITICAL: Document will fail unless you:")
+                        logger.error(f"  1. Restart Docker container")
+                        logger.error(f"  2. Verify Ollama is running inside container")
+                        logger.error(f"  3. Or use Gemini provider instead")
+                        raise Exception(f"Ollama service not available at {OLLAMA_BASE_URL}")
+                        
+                except Exception as connectivity_error:
+                    logger.error(f"❌ CRITICAL: Failed to connect to Ollama: {connectivity_error}")
+                    raise Exception(f"Ollama connectivity error: {connectivity_error}")
+                
+                llm_response, full_prompt = loop.run_until_complete(
                     send_prompt_to_ollama(
                         document.prompt,
-                        document.extracted_text,
+                        extracted_text,
                         document.model,
                         document.format_response,
                         document.example
@@ -136,10 +236,16 @@ def process_prompt_task(self, document_id: int):
             loop.close()
         
         # Update document in database
+        logger.info(f"💾 VERBOSE: Saving LLM response to database...")
         document.llm_response = llm_response
+        document.full_prompt_sent = full_prompt
         document.status = DocumentStatus.PROMPT_PROCESSED
         document.updated_at = datetime.utcnow()
         db.commit()
+        
+        # Verificação
+        db.refresh(document)
+        logger.info(f"✅ VERBOSE: LLM response saved - length: {len(document.llm_response) if document.llm_response else 0}")
         
         logger.info(f"✅ VERBOSE: Prompt processing completed for document {document_id}")
         logger.info(f"📊 VERBOSE: LLM response length: {len(llm_response)} characters")
@@ -151,18 +257,21 @@ def process_prompt_task(self, document_id: int):
         return {"status": "success", "document_id": document_id}
         
     except Exception as e:
-        logger.error(f"Error processing prompt for document {document_id}: {e}")
+        logger.error(f"❌ VERBOSE: Error processing prompt for document {document_id}: {e}")
         
         # Update document status to error
-        if 'document' in locals():
-            document.status = DocumentStatus.ERROR
-            document.error_message = str(e)
-            document.updated_at = datetime.utcnow()
-            db.commit()
+        try:
+            if 'document' in locals():
+                document.status = DocumentStatus.ERROR
+                document.error_message = str(e)
+                document.updated_at = datetime.utcnow()
+                db.commit()
+        except Exception as db_error:
+            logger.error(f"❌ VERBOSE: Failed to save error status: {db_error}")
         
         # Retry logic
         if self.request.retries < self.max_retries:
-            logger.info(f"Retrying prompt processing for document {document_id} (attempt {self.request.retries + 1})")
+            logger.info(f"🔄 VERBOSE: Retrying prompt processing for document {document_id} (attempt {self.request.retries + 1})")
             raise self.retry(countdown=60 * (2 ** self.request.retries))
         
         raise e
@@ -183,6 +292,9 @@ def format_response_task(self, document_id: int):
         logger.info(f"📋 VERBOSE: Format template: {document.format_response}")
         logger.info(f"💡 VERBOSE: Example provided: {bool(document.example)}")
         
+        # Verificação final do texto extraído
+        logger.info(f"🔍 VERBOSE: Final check - extracted_text length: {len(document.extracted_text) if document.extracted_text else 0}")
+        
         # Format response
         formatted_response = format_llm_response(
             document.llm_response,
@@ -191,11 +303,18 @@ def format_response_task(self, document_id: int):
         )
         
         # Update document in database
+        logger.info(f"💾 VERBOSE: Saving final formatted response...")
         document.formatted_response = formatted_response
         document.status = DocumentStatus.COMPLETED
         document.completed_at = datetime.utcnow()
         document.updated_at = datetime.utcnow()
         db.commit()
+        
+        # Verificação final
+        db.refresh(document)
+        logger.info(f"✅ VERBOSE: Final verification - status: {document.status}")
+        logger.info(f"✅ VERBOSE: Final verification - extracted_text length: {len(document.extracted_text) if document.extracted_text else 0}")
+        logger.info(f"✅ VERBOSE: Final verification - formatted_response length: {len(document.formatted_response) if document.formatted_response else 0}")
         
         logger.info(f"🎉 VERBOSE: Response formatting completed for document {document_id}")
         logger.info(f"✅ VERBOSE: Document processing pipeline completed successfully!")
@@ -204,18 +323,21 @@ def format_response_task(self, document_id: int):
         return {"status": "success", "document_id": document_id}
         
     except Exception as e:
-        logger.error(f"Error formatting response for document {document_id}: {e}")
+        logger.error(f"❌ VERBOSE: Error formatting response for document {document_id}: {e}")
         
         # Update document status to error
-        if 'document' in locals():
-            document.status = DocumentStatus.ERROR
-            document.error_message = str(e)
-            document.updated_at = datetime.utcnow()
-            db.commit()
+        try:
+            if 'document' in locals():
+                document.status = DocumentStatus.ERROR
+                document.error_message = str(e)
+                document.updated_at = datetime.utcnow()
+                db.commit()
+        except Exception as db_error:
+            logger.error(f"❌ VERBOSE: Failed to save error status: {db_error}")
         
         # Retry logic
         if self.request.retries < self.max_retries:
-            logger.info(f"Retrying response formatting for document {document_id} (attempt {self.request.retries + 1})")
+            logger.info(f"🔄 VERBOSE: Retrying response formatting for document {document_id} (attempt {self.request.retries + 1})")
             raise self.retry(countdown=60 * (2 ** self.request.retries))
         
         raise e

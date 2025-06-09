@@ -33,6 +33,7 @@ class Document(Base):
     
     # Processing results
     extracted_text = Column(Text, nullable=True)
+    full_prompt_sent = Column(Text, nullable=True)  # Prompt completo enviado para LLM
     llm_response = Column(Text, nullable=True)
     formatted_response = Column(Text, nullable=True)
     error_message = Column(Text, nullable=True)

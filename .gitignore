@@ -1,4 +1,4 @@
+
 /uploads
-*.bat
-/logs
-teste.jpg
+/__pycache__
+.env

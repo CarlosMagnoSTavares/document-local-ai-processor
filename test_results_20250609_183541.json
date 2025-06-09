@@ -1,0 +1,123 @@
+{
+  "summary": {
+    "total_tests": 15,
+    "passed_tests": 13,
+    "failed_tests": 2,
+    "success_rate": 86.66666666666667
+  },
+  "test_configuration": {
+    "base_url": "http://localhost:8000",
+    "api_key": "myelin-ocr-llm-2024-super-secret-key",
+    "gemini_api_key": "AIzaSyAxKbQ3ZryF5fYo...",
+    "test_file": "iso-14001 Antiga.pdf",
+    "ollama_model": "gemma3:1b",
+    "gemini_model": "gemini-2.0-flash"
+  },
+  "results": [
+    {
+      "test": "Health Check",
+      "status": "\u2705 PASS",
+      "success": true,
+      "details": "API is healthy",
+      "timestamp": "2025-06-09T18:35:28.989538"
+    },
+    {
+      "test": "API Information",
+      "status": "\u2705 PASS",
+      "success": true,
+      "details": "API info retrieved successfully",
+      "timestamp": "2025-06-09T18:35:28.999312"
+    },
+    {
+      "test": "List Ollama Models",
+      "status": "\u274c FAIL",
+      "success": false,
+      "details": "HTTP 500",
+      "timestamp": "2025-06-09T18:35:29.142538"
+    },
+    {
+      "test": "List Gemini Models",
+      "status": "\u274c FAIL",
+      "success": false,
+      "details": "HTTP 500",
+      "timestamp": "2025-06-09T18:35:30.219022"
+    },
+    {
+      "test": "Upload Ollama",
+      "status": "\u2705 PASS",
+      "success": true,
+      "details": "Document uploaded with ID: 3",
+      "timestamp": "2025-06-09T18:35:30.275267"
+    },
+    {
+      "test": "Upload Gemini",
+      "status": "\u2705 PASS",
+      "success": true,
+      "details": "Document uploaded with ID: 4",
+      "timestamp": "2025-06-09T18:35:35.357319"
+    },
+    {
+      "test": "Queue Status",
+      "status": "\u2705 PASS",
+      "success": true,
+      "details": "Queue has 4 documents",
+      "timestamp": "2025-06-09T18:35:35.398952"
+    },
+    {
+      "test": "Queue Status Debug",
+      "status": "\u2705 PASS",
+      "success": true,
+      "details": "Debug queue status retrieved",
+      "timestamp": "2025-06-09T18:35:35.447896"
+    },
+    {
+      "test": "Get Document Response",
+      "status": "\u2705 PASS",
+      "success": true,
+      "details": "Document response retrieved",
+      "timestamp": "2025-06-09T18:35:35.469350"
+    },
+    {
+      "test": "Get Document Response Debug",
+      "status": "\u2705 PASS",
+      "success": true,
+      "details": "Debug response retrieved",
+      "timestamp": "2025-06-09T18:35:35.507672"
+    },
+    {
+      "test": "Debug Document",
+      "status": "\u2705 PASS",
+      "success": true,
+      "details": "Document debug completed",
+      "timestamp": "2025-06-09T18:35:35.559001"
+    },
+    {
+      "test": "Get Compute Mode",
+      "status": "\u2705 PASS",
+      "success": true,
+      "details": "Current mode: gpu",
+      "timestamp": "2025-06-09T18:35:35.588497"
+    },
+    {
+      "test": "Set Compute Mode",
+      "status": "\u2705 PASS",
+      "success": true,
+      "details": "Mode set to: cpu",
+      "timestamp": "2025-06-09T18:35:41.057770"
+    },
+    {
+      "test": "Invalid API Key",
+      "status": "\u2705 PASS",
+      "success": true,
+      "details": "Correctly rejected invalid key",
+      "timestamp": "2025-06-09T18:35:41.064236"
+    },
+    {
+      "test": "Missing Gemini Key",
+      "status": "\u2705 PASS",
+      "success": true,
+      "details": "Correctly rejected missing Gemini key",
+      "timestamp": "2025-06-09T18:35:41.081375"
+    }
+  ]
+}

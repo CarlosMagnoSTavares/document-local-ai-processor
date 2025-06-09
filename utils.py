@@ -43,54 +43,142 @@ def save_uploaded_file(file_content: bytes, filename: str) -> str:
 def extract_text_from_image(image_path: str) -> str:
     """Extract text from image using OCR"""
     try:
+        logger.info(f"🖼️ VERBOSE: Starting OCR extraction from image: {image_path}")
+        logger.info(f"🖼️ VERBOSE: File exists: {os.path.exists(image_path)}")
+        
+        if not os.path.exists(image_path):
+            raise FileNotFoundError(f"Image file not found: {image_path}")
+        
+        # Verificar tamanho do arquivo
+        file_size = os.path.getsize(image_path)
+        logger.info(f"🖼️ VERBOSE: Image file size: {file_size} bytes")
+        
         image = Image.open(image_path)
+        logger.info(f"🖼️ VERBOSE: Image opened successfully - size: {image.size}, mode: {image.mode}")
+        
         text = pytesseract.image_to_string(image, lang='por+eng')
-        return text.strip()
+        logger.info(f"🖼️ VERBOSE: OCR completed - extracted {len(text)} characters")
+        logger.info(f"🖼️ VERBOSE: OCR preview: {text[:100]}..." if len(text) > 100 else f"🖼️ VERBOSE: OCR result: {text}")
+        
+        result = text.strip()
+        logger.info(f"✅ VERBOSE: Image extraction successful - final length: {len(result)}")
+        return result
     except Exception as e:
-        logger.error(f"Error extracting text from image {image_path}: {e}")
+        logger.error(f"❌ VERBOSE: Error extracting text from image {image_path}: {e}")
+        logger.error(f"❌ VERBOSE: Exception type: {type(e).__name__}")
         raise
 
 def extract_text_from_pdf(pdf_path: str) -> str:
     """Extract text from PDF file"""
     try:
+        logger.info(f"📄 VERBOSE: Starting PDF extraction from: {pdf_path}")
+        logger.info(f"📄 VERBOSE: File exists: {os.path.exists(pdf_path)}")
+        
+        if not os.path.exists(pdf_path):
+            raise FileNotFoundError(f"PDF file not found: {pdf_path}")
+        
+        # Verificar tamanho do arquivo
+        file_size = os.path.getsize(pdf_path)
+        logger.info(f"📄 VERBOSE: PDF file size: {file_size} bytes")
+        
         text = ""
         with open(pdf_path, 'rb') as file:
             pdf_reader = PyPDF2.PdfReader(file)
-            for page in pdf_reader.pages:
-                text += page.extract_text() + "\n"
-        return text.strip()
+            num_pages = len(pdf_reader.pages)
+            logger.info(f"📄 VERBOSE: PDF has {num_pages} pages")
+            
+            for i, page in enumerate(pdf_reader.pages):
+                page_text = page.extract_text()
+                text += page_text + "\n"
+                logger.info(f"📄 VERBOSE: Page {i+1} extracted {len(page_text)} characters")
+        
+        logger.info(f"📄 VERBOSE: PDF extraction completed - total {len(text)} characters")
+        logger.info(f"📄 VERBOSE: PDF preview: {text[:100]}..." if len(text) > 100 else f"📄 VERBOSE: PDF result: {text}")
+        
+        result = text.strip()
+        logger.info(f"✅ VERBOSE: PDF extraction successful - final length: {len(result)}")
+        return result
     except Exception as e:
-        logger.error(f"Error extracting text from PDF {pdf_path}: {e}")
+        logger.error(f"❌ VERBOSE: Error extracting text from PDF {pdf_path}: {e}")
+        logger.error(f"❌ VERBOSE: Exception type: {type(e).__name__}")
         raise
 
 def extract_text_from_docx(docx_path: str) -> str:
     """Extract text from DOCX file"""
     try:
+        logger.info(f"📝 VERBOSE: Starting DOCX extraction from: {docx_path}")
+        logger.info(f"📝 VERBOSE: File exists: {os.path.exists(docx_path)}")
+        
+        if not os.path.exists(docx_path):
+            raise FileNotFoundError(f"DOCX file not found: {docx_path}")
+        
+        # Verificar tamanho do arquivo
+        file_size = os.path.getsize(docx_path)
+        logger.info(f"📝 VERBOSE: DOCX file size: {file_size} bytes")
+        
         doc = DocxDocument(docx_path)
         text = ""
+        paragraph_count = 0
+        
         for paragraph in doc.paragraphs:
-            text += paragraph.text + "\n"
-        return text.strip()
+            paragraph_text = paragraph.text
+            text += paragraph_text + "\n"
+            if paragraph_text.strip():
+                paragraph_count += 1
+        
+        logger.info(f"📝 VERBOSE: DOCX extraction completed - {paragraph_count} paragraphs, {len(text)} characters")
+        logger.info(f"📝 VERBOSE: DOCX preview: {text[:100]}..." if len(text) > 100 else f"📝 VERBOSE: DOCX result: {text}")
+        
+        result = text.strip()
+        logger.info(f"✅ VERBOSE: DOCX extraction successful - final length: {len(result)}")
+        return result
     except Exception as e:
-        logger.error(f"Error extracting text from DOCX {docx_path}: {e}")
+        logger.error(f"❌ VERBOSE: Error extracting text from DOCX {docx_path}: {e}")
+        logger.error(f"❌ VERBOSE: Exception type: {type(e).__name__}")
         raise
 
 def extract_text_from_excel(excel_path: str) -> str:
     """Extract text from Excel file"""
     try:
+        logger.info(f"📊 VERBOSE: Starting Excel extraction from: {excel_path}")
+        logger.info(f"📊 VERBOSE: File exists: {os.path.exists(excel_path)}")
+        
+        if not os.path.exists(excel_path):
+            raise FileNotFoundError(f"Excel file not found: {excel_path}")
+        
+        # Verificar tamanho do arquivo
+        file_size = os.path.getsize(excel_path)
+        logger.info(f"📊 VERBOSE: Excel file size: {file_size} bytes")
+        
         workbook = openpyxl.load_workbook(excel_path)
         text = ""
+        total_rows = 0
+        
+        logger.info(f"📊 VERBOSE: Excel has {len(workbook.sheetnames)} sheets: {workbook.sheetnames}")
+        
         for sheet_name in workbook.sheetnames:
             sheet = workbook[sheet_name]
             text += f"Sheet: {sheet_name}\n"
+            sheet_rows = 0
+            
             for row in sheet.iter_rows(values_only=True):
                 row_text = "\t".join([str(cell) if cell is not None else "" for cell in row])
                 if row_text.strip():
                     text += row_text + "\n"
+                    sheet_rows += 1
             text += "\n"
-        return text.strip()
+            total_rows += sheet_rows
+            logger.info(f"📊 VERBOSE: Sheet '{sheet_name}' has {sheet_rows} rows with data")
+        
+        logger.info(f"📊 VERBOSE: Excel extraction completed - {total_rows} total rows, {len(text)} characters")
+        logger.info(f"📊 VERBOSE: Excel preview: {text[:100]}..." if len(text) > 100 else f"📊 VERBOSE: Excel result: {text}")
+        
+        result = text.strip()
+        logger.info(f"✅ VERBOSE: Excel extraction successful - final length: {len(result)}")
+        return result
     except Exception as e:
-        logger.error(f"Error extracting text from Excel {excel_path}: {e}")
+        logger.error(f"❌ VERBOSE: Error extracting text from Excel {excel_path}: {e}")
+        logger.error(f"❌ VERBOSE: Exception type: {type(e).__name__}")
         raise
 
 def extract_text_from_file(file_path: str, file_type: str) -> str:
@@ -120,8 +208,8 @@ def extract_text_from_file(file_path: str, file_type: str) -> str:
     
     return text
 
-async def send_prompt_to_ollama(prompt: str, context: str, model: str, format_response: str = None, example: str = None) -> str:
-    """Send prompt to Ollama and get response"""
+async def send_prompt_to_ollama(prompt: str, context: str, model: str, format_response: str = None, example: str = None) -> tuple[str, str]:
+    """Send prompt to Ollama and get response. Returns (llm_response, full_prompt)"""
     try:
         # Build enhanced prompt with strict formatting instructions
         format_instructions = ""
@@ -201,7 +289,7 @@ Based on the context provided above, extract the required information and respon
             if "eval_count" in result:
                 logger.info(f"📊 VERBOSE: Response tokens: {result['eval_count']}")
             
-            return llm_response
+            return llm_response, full_prompt
     except Exception as e:
         logger.error(f"❌ VERBOSE: Error sending prompt to Ollama: {e}")
         raise
@@ -393,8 +481,8 @@ def validate_file_size(file_size: int) -> bool:
     """Validate file size"""
     return file_size <= MAX_FILE_SIZE 
 
-async def send_prompt_to_gemini(prompt: str, context: str, model: str, gemini_api_key: str, format_response: str = None, example: str = None) -> str:
-    """Send prompt to Google Gemini API and get response"""
+async def send_prompt_to_gemini(prompt: str, context: str, model: str, gemini_api_key: str, format_response: str = None, example: str = None) -> tuple[str, str]:
+    """Send prompt to Google Gemini API and get response. Returns (llm_response, full_prompt)"""
     try:
         from google import genai
         
@@ -462,7 +550,7 @@ Based on the context provided above, extract the required information and respon
         logger.info(f"✅ VERBOSE: Gemini response received ({len(gemini_response)} chars)")
         logger.info(f"💬 VERBOSE: Response preview: {gemini_response[:200]}..." if len(gemini_response) > 200 else f"💬 VERBOSE: Full response: {gemini_response}")
         
-        return gemini_response
+        return gemini_response, full_prompt
         
     except Exception as e:
         logger.error(f"❌ VERBOSE: Error sending prompt to Gemini: {e}")
@@ -528,22 +616,34 @@ async def list_gemini_models(gemini_api_key: str) -> dict:
                         {
                             'name': 'gemini-2.0-flash',
                             'description': 'Latest multimodal model with next generation features',
-                            'version': 'latest'
+                            'version': 'latest',
+                            'size': None,
+                            'modified': None,
+                            'status': 'available'
                         },
                         {
-                            'name': 'gemini-2.5-pro-preview',
+                            'name': 'gemini-2.5-pro-preview', 
                             'description': 'Most powerful thinking model with enhanced reasoning',
-                            'version': 'preview'
+                            'version': 'preview',
+                            'size': None,
+                            'modified': None,
+                            'status': 'available'
                         },
                         {
                             'name': 'gemini-1.5-pro',
-                            'description': 'Advanced model for complex reasoning tasks',
-                            'version': 'stable'
+                            'description': 'Advanced model for complex reasoning tasks', 
+                            'version': 'stable',
+                            'size': None,
+                            'modified': None,
+                            'status': 'available'
                         },
                         {
                             'name': 'gemini-1.5-flash',
                             'description': 'Fast and versatile performance model',
-                            'version': 'stable'
+                            'version': 'stable',
+                            'size': None,
+                            'modified': None,
+                            'status': 'available'
                         }
                     ]
                 }
@@ -557,7 +657,10 @@ async def list_gemini_models(gemini_api_key: str) -> dict:
                 {
                     'name': 'gemini-2.0-flash',
                     'description': 'Latest multimodal model (fallback)',
-                    'version': 'latest'
+                    'version': 'latest',
+                    'size': None,
+                    'modified': None,
+                    'status': 'available'
                 }
             ]
         } 

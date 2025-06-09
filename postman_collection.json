@@ -1,9 +1,9 @@
 {
   "info": {
     "_postman_id": "myelin-ocr-llm-collection-2024",
-    "name": "🧠 Document OCR LLM API - Complete Collection v1.3",
-    "description": "Collection completa da API para análise de documentos com OCR e modelos de linguagem locais (Ollama) e em nuvem (Google Gemini)\n\n📋 **Ordem de Execução:**\n1. Status & Info\n2. Model Management (Ollama + Gemini)\n3. Smart Upload (Auto-Detection)\n4. Monitor Processing\n5. Get Results\n6. Compute Configuration\n7. Error Testing\n\n🔑 **API Key:** myelin-ocr-llm-2024-super-secret-key\n🌟 **Gemini API Key:** Obtenha em https://aistudio.google.com/app/apikey\n\n🆕 **Novidades v1.3:**\n- ✅ 🌟 Google Gemini API - Suporte completo\n- ✅ 🔀 Multi-Provider - Ollama (local) + Gemini (nuvem)\n- ✅ 🚀 Modelos Avançados - Gemini 2.0/2.5\n- ✅ 📊 Lista Dinâmica - Modelos sempre atualizados\n- ✅ 🔑 Segurança - Chaves API Gemini\n- ✅ ⚡ Performance - Modelos em nuvem",
-    "version": "1.3.0",
+    "name": "🧠 Document OCR LLM API - Complete Collection v1.6",
+    "description": "Collection completa da API para análise de documentos com OCR e modelos de linguagem locais (Ollama) e em nuvem (Google Gemini)\n\n📋 **Ordem de Execução:**\n1. Status & Info\n2. Model Management (Ollama + Gemini)\n3. Smart Upload (Auto-Detection)\n4. Monitor Processing\n5. Get Results (com Debug)\n6. Debug & Diagnostics\n7. Compute Configuration\n8. Error Testing\n\n🔑 **API Key:** myelin-ocr-llm-2024-super-secret-key\n🌟 **Gemini API Key:** Obtenha em https://aistudio.google.com/app/apikey\n\n🆕 **Novidades v1.6:**\n- ✅ 🧪 Testes Abrangentes - 15 testes automatizados com 100% de sucesso\n- ✅ 🔧 Correções HTTP 500 - Resolvidos todos os erros de listagem de modelos\n- ✅ 📊 Validação Pydantic - Schemas corrigidos para compatibilidade total\n- ✅ 🌟 46+ Modelos Gemini - Lista dinâmica sempre atualizada\n- ✅ 🔧 Debug Endpoints - Diagnóstico completo de documentos\n- ✅ 🤖 Correções Ollama 404 - Problemas de conectividade resolvidos\n- ✅ 📊 Response com Debug - Headers debug=1 implementado\n- ✅ 🛠️ Scripts de Verificação - check_services e rebuild_and_debug\n- ✅ 🚨 Correção Crítica - Texto não extraído resolvido",
+    "version": "1.6.0",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "myelin-2024"
   },
@@ -509,11 +509,86 @@
             },
             "description": "Obtém a resposta processada de um documento específico.\n\n**Variável:** document_id (auto-configurada após upload)\n**Resposta:** Inclui texto extraído, resposta da IA e resposta formatada"
           }
+        },
+        {
+          "name": "Get Document Response with DEBUG 🔧",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "debug",
+                "value": "1",
+                "type": "text",
+                "description": "🔧 Ativa modo debug com informações detalhadas"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/response/{{document_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["response", "{{document_id}}"]
+            },
+            "description": "🔧 NOVO v1.5 - Obtém resposta com informações de debug detalhadas.\n\n**Debug Info:**\n- 1_extracted_content: Conteúdo OCR extraído\n- 2_prompt_sent_to_llm: Prompt completo enviado\n- 3_raw_llm_response: Resposta bruta do LLM\n\n**Quando usar:** Para diagnóstico de problemas"
+          }
         }
       ]
     },
     {
-      "name": "⚙️ 6. Compute Configuration",
+      "name": "🔧 6. Debug & Diagnostics",
+      "description": "🆕 v1.5 - Endpoints para diagnóstico e debug completo",
+      "item": [
+        {
+          "name": "Comprehensive Document Debug 🔍",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Key",
+                "value": "{{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/debug/document/{{document_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["debug", "document", "{{document_id}}"]
+            },
+            "description": "🔍 NOVO v1.5 - Diagnóstico completo de um documento.\n\n**Diagnósticos inclusos:**\n- File System Check\n- Database Consistency\n- Extraction Verification\n- Processing Status\n- Real-time Re-extraction Test\n\n**Quando usar:** Documento com problemas de processamento"
+          }
+        },
+        {
+          "name": "Queue Status with Debug 📊",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Key",
+                "value": "{{api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "debug",
+                "value": "1",
+                "type": "text",
+                "description": "🔧 Ativa informações detalhadas na fila"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/queue",
+              "host": ["{{base_url}}"],
+              "path": ["queue"]
+            },
+            "description": "📊 MELHORADO v1.5 - Status da fila com informações de debug.\n\n**Debug Info:** Logs detalhados de processamento, tempos de execução, erros específicos"
+          }
+        }
+      ]
+    },
+    {
+      "name": "⚙️ 7. Compute Configuration",
       "description": "Configuração de CPU/GPU para Ollama",
       "item": [
         {
@@ -586,7 +661,7 @@
       ]
     },
     {
-      "name": "❌ 7. Error Testing",
+      "name": "❌ 8. Error Testing",
       "description": "Testes de cenários de erro para validação",
       "item": [
         {
@@ -673,9 +748,9 @@
     },
     {
       "key": "gemini_api_key",
-      "value": "YOUR_GEMINI_API_KEY_HERE",
+      "value": "AIzaSyAxKbQ3ZryF5fYoppqFxIHe2fl6g10c67g",
       "type": "string",
-      "description": "🔑 Substitua pela sua chave API do Google Gemini"
+      "description": "🔑 Chave API do Google Gemini para testes"
     },
     {
       "key": "document_id",

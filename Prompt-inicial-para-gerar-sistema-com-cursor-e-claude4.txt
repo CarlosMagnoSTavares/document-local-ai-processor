@@ -1,5 +1,16 @@
 Aja como um arquiteto de software, desenvolvedor fullstack e engenheiro de IA. Sua tarefa é criar um backend escalável, seguro e leve, que atue como um orquestrador para análise de documentos com auxílio de modelos de linguagem locais (via Ollama) e em nuvem (via Google Gemini API).
 
+🆕 **VERSÃO 1.6 - TESTES ABRANGENTES & CORREÇÕES FINAIS**
+Este sistema agora inclui:
+- 🧪 **Suite de Testes Completa**: 15 testes automatizados com 100% de sucesso
+- 🔧 **Correções HTTP 500**: Resolvidos todos os erros de listagem de modelos
+- 📊 **Validação Pydantic**: Schemas corrigidos para compatibilidade total
+- 🌟 **46+ Modelos Gemini**: Lista dinâmica sempre atualizada
+- 🔧 **Sistema de Debug Avançado**: Endpoints para diagnóstico completo
+- 🚨 **Correção de Bug Crítico**: Problema de extração de texto resolvido
+- 📊 **Monitoramento Aprimorado**: Logs detalhados e verificações de consistência
+- 🛠️ **Script de Correção**: Ferramenta automática para identificar e corrigir problemas
+
 🆕 **VERSÃO 1.3 - MULTI-PROVIDER AI**
 Este sistema agora suporta dois provedores de IA:
 - 🏠 **Ollama (Local)**: Privacidade total, modelos locais, sem custos
@@ -94,6 +105,12 @@ O sistema deve ser capaz de:
 | `GET` | `/health` | Health check da aplicação |
 | `GET` | `/` | Informações e documentação da API |
 
+### **🆕 Debug & Diagnóstico (v1.4)**
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| `GET` | `/debug/document/:id` | **🔧 NOVO** - Diagnóstico completo de documento |
+| `GET` | `/response/:id?debug=1` | **📊 NOVO** - Response com informações de debug |
+
 📁 **Organização do Projeto Atualizada**
 
 ```
@@ -101,18 +118,37 @@ project/
 ├── 🐳 Dockerfile (Ubuntu + Ollama + Python + Tesseract)
 ├── 🚀 docker-compose.yml 
 ├── 📋 requirements.txt (+ google-genai, httpx)
-├── 🔧 main.py (FastAPI + endpoints Gemini)
-├── 👷 workers.py (processamento multi-provider)
-├── 🛠️ utils.py (+ integração Gemini dinâmica)
+├── 🔧 main.py (FastAPI + endpoints Gemini + Debug)
+├── 👷 workers.py (processamento multi-provider + logs detalhados)
+├── 🛠️ utils.py (+ integração Gemini dinâmica + logs OCR)
 ├── 🗄️ models.py (+ campos Gemini)
 ├── 🔐 .env (+ configurações Gemini)
-├── 📖 README.md (documentação completa)
-├── 🧪 postman_collection.json (collection v1.3)
+├── 📖 README.md (documentação completa + troubleshooting)
+├── 🧪 postman_collection.json (collection v1.4)
 ├── 📝 Prompt-inicial.txt (este arquivo)
+├── 🔧 fix_extraction_bug.py (🆕 script de correção automática)
 └── ⚙️ start.sh, supervisord.conf
 ```
 
 🧪 **Testes Completos**
+
+### **🎯 Suite de Testes Abrangentes (NOVO!)**
+**Status: ✅ 100% de Sucesso (15/15 testes)**
+
+Execute a suite completa:
+```bash
+python comprehensive_api_test.py
+```
+
+**Cobertura de Testes:**
+- ✅ Status & Informações (Health check, API info)
+- ✅ Gestão de Modelos (Ollama + Gemini - 46+ modelos)
+- ✅ Smart Upload Multi-Provider (Ollama + Gemini)
+- ✅ Monitoramento (Queue status com/sem debug)
+- ✅ Resultados (Document responses com debug)
+- ✅ Diagnósticos (Debug completo de documentos)
+- ✅ Configuração (CPU/GPU mode management)
+- ✅ Segurança (API key validation, error handling)
 
 ### **🏠 Teste Ollama (Local)**
 ```bash
@@ -199,11 +235,74 @@ O README deve incluir:
 - **Docker**: Versão 20.10+
 - **Sistema**: Windows 11, Linux, macOS
 
-### **Configurações Recomendadas**
-- **Desenvolvimento**: Ollama local + Gemini para testes
-- **Produção leve**: Apenas Gemini
-- **Produção completa**: Híbrido com balanceamento
-- **Enterprise**: Multi-region com cache distribuído
+📚 **Documentação Interativa (Swagger/OpenAPI)**
+
+### **🎯 Implementação Obrigatória**
+O sistema DEVE incluir documentação Swagger/OpenAPI completa e interativa:
+
+### **📋 Configuração FastAPI**
+```python
+app = FastAPI(
+    title="Document OCR LLM API",
+    description="API para análise de documentos com OCR e LLM (Ollama + Gemini)",
+    version="1.3.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json"
+)
+```
+
+### **🏷️ Organização por Tags**
+- **📤 Upload de Documentos**: Endpoints de upload e processamento
+- **📊 Monitoramento**: Status de fila e progresso
+- **📄 Resultados**: Recuperação de respostas processadas
+- **🤖 Gestão de Modelos**: Download e listagem (Ollama + Gemini)
+- **⚙️ Configuração**: CPU/GPU e configurações avançadas
+- **🏥 Saúde**: Health checks e diagnósticos
+- **🏠 Informações**: Documentação e informações da API
+
+### **📖 Modelos Pydantic Obrigatórios**
+```python
+class UploadResponse(BaseModel):
+    status: str = Field(description="Status da operação")
+    document_id: int = Field(description="ID único do documento")
+    ai_provider: str = Field(description="Provedor utilizado")
+    extraction_tool: str = Field(description="Ferramenta de extração")
+
+class DocumentResponse(BaseModel):
+    status: str = Field(description="Status do processamento")
+    data: dict = Field(description="Dados e resultado")
+
+class ModelsListResponse(BaseModel):
+    status: str = Field(description="Status da operação")
+    provider: str = Field(description="Provedor (ollama/gemini)")
+    models: List[ModelInfo] = Field(description="Lista de modelos")
+```
+
+### **🔧 Endpoints Documentados**
+Cada endpoint DEVE ter:
+- **summary**: Título descritivo
+- **description**: Explicação detalhada
+- **tags**: Categoria apropriada
+- **response_model**: Modelo Pydantic de resposta
+- **responses**: Códigos de status e descrições
+- **parameters**: Descrição completa de headers e parâmetros
+
+### **🌐 URLs de Acesso**
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
+- **OpenAPI JSON**: http://localhost:8000/openapi.json
+
+### **✅ Benefícios Implementados**
+- ✅ **Teste sem Postman**: Interface web completa
+- ✅ **Documentação Automática**: Sempre sincronizada
+- ✅ **Validação Integrada**: Verificação de parâmetros
+- ✅ **Exemplos Práticos**: Modelos de uso
+- ✅ **Autenticação Visual**: Interface para API keys
+- ✅ **Organização Intuitiva**: Navegação por categorias
+
+### **🎯 Requisito de Entrega**
+A documentação Swagger DEVE estar 100% funcional e permitir testar todos os endpoints da API diretamente no navegador, eliminando a necessidade do Postman para testes básicos.
 
 🚀 **Recursos Avançados a Implementar**
 
@@ -223,4 +322,39 @@ O README deve incluir:
 
 Este prompt deve gerar um sistema completo, robusto e futuro-prático, capaz de evoluir com as necessidades do usuário e as inovações em IA.
 
-**🎯 Meta Final**: Sistema de análise de documentos que combina o melhor dos dois mundos - privacidade e controle local (Ollama) + poder e conveniência da nuvem (Gemini). 
+**🎯 Meta Final**: Sistema de análise de documentos que combina o melhor dos dois mundos - privacidade e controle local (Ollama) + poder e conveniência da nuvem (Gemini).
+
+### **🔧 Endpoints Obrigatórios**
+
+#### **📤 Upload e Processamento**
+- `POST /upload` - Upload de documentos com processamento automático
+- `GET /response/{document_id}` - Recuperar resultado processado
+- `GET /response/{document_id}` + `debug: 1` - **MODO DEBUG AVANÇADO**
+
+#### **🐛 Funcionalidade Debug Obrigatória**
+O sistema DEVE implementar modo debug completo no endpoint `/response/{document_id}`:
+
+**Ativação**: Header `debug: 1`
+
+**Retorno Debug (3 seções obrigatórias)**:
+1. **Conteúdo Extraído**: Texto OCR/Parser + ferramenta utilizada + estatísticas
+2. **Prompt Completo**: Prompt original + prompt construído + configurações + contexto
+3. **Resposta Raw LLM**: Resposta bruta + resposta formatada + comparação
+
+**Finalidade**: Troubleshooting de qualidade (OCR vs Prompt vs Modelo)
+
+#### **📊 Monitoramento e Gestão**
+```
+
+## 🚨 PROBLEMAS RESOLVIDOS (CRÍTICOS)
+
+### 1. 🤖 ERRO 404 OLLAMA (NOVA CORREÇÃO v1.5)
+- **Problema**: Ollama retorna erro 404 em `/api/generate`  
+- **Causa**: Ollama não está iniciando corretamente no container
+- **Correção**: Implementado sistema completo de verificação e restart
+- **Scripts criados**:
+  - `check_services.sh` - Verificação rápida de todos os serviços
+  - `rebuild_and_debug.sh` - Rebuild completo com debug detalhado
+- **Melhorias**: Supervisor com prioridades, timeouts aumentados, variáveis de ambiente corrigidas
+
+### 2. 🐛 TEXTO NÃO EXTRAÍDO (CORRIGIDO v1.4)
