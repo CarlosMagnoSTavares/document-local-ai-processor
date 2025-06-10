@@ -9,6 +9,7 @@ aiosqlite==0.19.0
 pytesseract==0.3.10
 Pillow==10.1.0
 PyPDF2==3.0.1
+PyMuPDF==1.23.26
 python-docx==1.1.0
 openpyxl==3.1.2
 requests==2.31.0

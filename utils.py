@@ -7,9 +7,11 @@ from docx import Document as DocxDocument
 import openpyxl
 import httpx
 import json
+import io
 from pathlib import Path
 from loguru import logger
 from dotenv import load_dotenv
+import fitz  # PyMuPDF for PDF to image conversion
 
 load_dotenv()
 
@@ -69,9 +71,9 @@ def extract_text_from_image(image_path: str) -> str:
         raise
 
 def extract_text_from_pdf(pdf_path: str) -> str:
-    """Extract text from PDF file"""
+    """Extract text from PDF file using Tesseract OCR"""
     try:
-        logger.info(f"📄 VERBOSE: Starting PDF extraction from: {pdf_path}")
+        logger.info(f"📄 VERBOSE: Starting PDF OCR extraction from: {pdf_path}")
         logger.info(f"📄 VERBOSE: File exists: {os.path.exists(pdf_path)}")
         
         if not os.path.exists(pdf_path):
@@ -81,22 +83,44 @@ def extract_text_from_pdf(pdf_path: str) -> str:
         file_size = os.path.getsize(pdf_path)
         logger.info(f"📄 VERBOSE: PDF file size: {file_size} bytes")
         
+        # Convert PDF to images and apply OCR
         text = ""
-        with open(pdf_path, 'rb') as file:
-            pdf_reader = PyPDF2.PdfReader(file)
-            num_pages = len(pdf_reader.pages)
-            logger.info(f"📄 VERBOSE: PDF has {num_pages} pages")
-            
-            for i, page in enumerate(pdf_reader.pages):
-                page_text = page.extract_text()
-                text += page_text + "\n"
-                logger.info(f"📄 VERBOSE: Page {i+1} extracted {len(page_text)} characters")
+        pdf_document = fitz.open(pdf_path)
+        num_pages = len(pdf_document)
+        logger.info(f"📄 VERBOSE: PDF has {num_pages} pages - converting to images for OCR")
         
-        logger.info(f"📄 VERBOSE: PDF extraction completed - total {len(text)} characters")
+        for page_num in range(num_pages):
+            logger.info(f"📄 VERBOSE: Processing page {page_num + 1}/{num_pages}")
+            
+            # Get the page
+            page = pdf_document[page_num]
+            
+            # Convert page to image (higher resolution for better OCR)
+            mat = fitz.Matrix(2, 2)  # 2x zoom for better quality
+            pix = page.get_pixmap(matrix=mat)
+            
+            # Convert to PIL Image
+            img_data = pix.tobytes("ppm")
+            image = Image.open(io.BytesIO(img_data))
+            
+            logger.info(f"📄 VERBOSE: Page {page_num + 1} converted to image - size: {image.size}")
+            
+            # Apply OCR to the image
+            page_text = pytesseract.image_to_string(image, lang='por+eng')
+            text += page_text + "\n"
+            logger.info(f"📄 VERBOSE: Page {page_num + 1} OCR extracted {len(page_text)} characters")
+            
+            # Clean up
+            pix = None
+            image.close()
+        
+        pdf_document.close()
+        
+        logger.info(f"📄 VERBOSE: PDF OCR extraction completed - total {len(text)} characters")
         logger.info(f"📄 VERBOSE: PDF preview: {text[:100]}..." if len(text) > 100 else f"📄 VERBOSE: PDF result: {text}")
         
         result = text.strip()
-        logger.info(f"✅ VERBOSE: PDF extraction successful - final length: {len(result)}")
+        logger.info(f"✅ VERBOSE: PDF OCR extraction successful - final length: {len(result)}")
         return result
     except Exception as e:
         logger.error(f"❌ VERBOSE: Error extracting text from PDF {pdf_path}: {e}")
@@ -191,7 +215,7 @@ def extract_text_from_file(file_path: str, file_type: str) -> str:
         logger.info(f"🖼️ VERBOSE: Using OCR (Tesseract) for image processing")
         text = extract_text_from_image(file_path)
     elif file_type == 'pdf':
-        logger.info(f"📄 VERBOSE: Using PyPDF2 for PDF processing")
+        logger.info(f"📄 VERBOSE: Using Tesseract OCR for PDF processing")
         text = extract_text_from_pdf(file_path)
     elif file_type in ['docx', 'doc']:
         logger.info(f"📝 VERBOSE: Using python-docx for DOCX processing")

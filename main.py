@@ -154,10 +154,8 @@ def validate_api_key(key: str = Header(..., alias="Key")):
 # Helper function for debug info
 def get_extraction_tool_name(file_type: str) -> str:
     """Get the extraction tool name based on file type"""
-    if file_type.lower() in ['jpg', 'jpeg', 'png']:
+    if file_type.lower() in ['jpg', 'jpeg', 'png', 'pdf']:
         return "Tesseract OCR"
-    elif file_type.lower() == 'pdf':
-        return "PyPDF2 Parser"
     elif file_type.lower() in ['docx', 'doc']:
         return "python-docx Parser"
     elif file_type.lower() in ['xlsx', 'xls']:
@@ -201,7 +199,7 @@ async def upload_document(
     
     📋 Supported file types with automatic detection:
     - Images (JPG, JPEG, PNG) → Tesseract OCR
-    - PDFs → PyPDF2 Parser  
+    - PDFs → Tesseract OCR (PDF to Image conversion)  
     - Word docs (DOCX, DOC) → python-docx Parser
     - Excel files (XLSX, XLS) → openpyxl Parser
     
@@ -273,16 +271,7 @@ async def upload_document(
         logger.info(f"🔍 VERBOSE: Auto-detected file type: {file_type.upper()}")
         
         # Log which extraction tool will be used
-        extraction_tool = "Unknown"
-        if file_type in ['jpg', 'jpeg', 'png']:
-            extraction_tool = "Tesseract OCR"
-        elif file_type == 'pdf':
-            extraction_tool = "PyPDF2 Parser"
-        elif file_type in ['docx', 'doc']:
-            extraction_tool = "python-docx Parser"
-        elif file_type in ['xlsx', 'xls']:
-            extraction_tool = "openpyxl Parser"
-        
+        extraction_tool = get_extraction_tool_name(file_type)
         logger.info(f"🛠️ VERBOSE: Will use extraction tool: {extraction_tool}")
         
         # Get database connection
@@ -932,7 +921,7 @@ async def root():
         },
         "file_types_supported": {
             "Images": "JPG, JPEG, PNG → Tesseract OCR",
-            "PDFs": "PDF → PyPDF2 Parser",
+            "PDFs": "PDF → Tesseract OCR",
             "Word": "DOCX, DOC → python-docx Parser", 
             "Excel": "XLSX, XLS → openpyxl Parser"
         },
