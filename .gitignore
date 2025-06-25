@@ -3,3 +3,5 @@
 /__pycache__
 .env
 /logs
+logs/app.log
+logs/verbose.log
